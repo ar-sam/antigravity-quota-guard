@@ -16,6 +16,7 @@ const { execFile, exec } = require('child_process');
 // Configuration paths
 const CONFIG_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+const CONFIG_LKG_FILE = path.join(CONFIG_DIR, 'config.lkg.json');
 const RUNTIME_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'runtime');
 const CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
 
@@ -116,6 +117,34 @@ function loadConfigSafe() {
   return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 }
 
+function sanitizeAndRepairThresholdsPayload(thresholds) {
+  const defaults = { warnPercent: 20, stabilizePercent: 15, checkpointPercent: 13, stopPercent: 12, minResumePercent: 70 };
+  if (!thresholds || typeof thresholds !== 'object') return { ...defaults };
+
+  let st = (typeof thresholds.stopPercent === 'number' && !Number.isNaN(thresholds.stopPercent))
+    ? Math.max(1, Math.min(50, Math.round(thresholds.stopPercent)))
+    : defaults.stopPercent;
+  let c = (typeof thresholds.checkpointPercent === 'number' && !Number.isNaN(thresholds.checkpointPercent))
+    ? Math.max(3, Math.min(100, Math.round(thresholds.checkpointPercent)))
+    : defaults.checkpointPercent;
+  let s = (typeof thresholds.stabilizePercent === 'number' && !Number.isNaN(thresholds.stabilizePercent))
+    ? Math.max(4, Math.min(100, Math.round(thresholds.stabilizePercent)))
+    : defaults.stabilizePercent;
+  let w = (typeof thresholds.warnPercent === 'number' && !Number.isNaN(thresholds.warnPercent))
+    ? Math.max(5, Math.min(100, Math.round(thresholds.warnPercent)))
+    : defaults.warnPercent;
+  let r = (typeof thresholds.minResumePercent === 'number' && !Number.isNaN(thresholds.minResumePercent))
+    ? Math.max(10, Math.min(100, Math.round(thresholds.minResumePercent)))
+    : defaults.minResumePercent;
+
+  if (c <= st) c = Math.min(100, st + 1);
+  if (s <= c) s = Math.min(100, c + 2);
+  if (w <= s) w = Math.min(100, s + 5);
+  if (r <= st) r = Math.min(100, Math.max(r, st + 5));
+
+  return { warnPercent: w, stabilizePercent: s, checkpointPercent: c, stopPercent: st, minResumePercent: r };
+}
+
 // Helper: save config safely
 function saveConfigSafe(newCfg) {
   try {
@@ -134,16 +163,21 @@ function saveConfigSafe(newCfg) {
       merged.visuals.hudScope = 'fiveHour';
     }
     if (merged.thresholds && typeof merged.thresholds === 'object') {
-      const { stopPercent, stabilizePercent, warnPercent } = merged.thresholds;
-      if (typeof stopPercent === 'number' && typeof stabilizePercent === 'number' && typeof warnPercent === 'number') {
-        if (stopPercent >= stabilizePercent || stabilizePercent > warnPercent) {
-          merged.thresholds.stopPercent = 12;
-          merged.thresholds.stabilizePercent = 15;
-          merged.thresholds.warnPercent = 20;
-        }
-      }
+      merged.thresholds = sanitizeAndRepairThresholdsPayload(merged.thresholds);
     }
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf8');
+    const serialized = JSON.stringify(merged, null, 2);
+    // Write atomically to config.json
+    const tmpFile = `${CONFIG_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmpFile, serialized, 'utf8');
+    fs.renameSync(tmpFile, CONFIG_FILE);
+
+    // Sync config.lkg.json so LKG always mirrors the latest valid saved config
+    try {
+      const tmpLkg = `${CONFIG_LKG_FILE}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpLkg, serialized, 'utf8');
+      fs.renameSync(tmpLkg, CONFIG_LKG_FILE);
+    } catch (_) {}
+
     return true;
   } catch (err) {
     console.error('[QuotaGuard] Failed to save config:', err);
@@ -2277,7 +2311,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
           <div class="qg-field">
             <label>\${t('warnThreshold')}</label>
             <div class="qg-slider-row">
-              <input type="range" class="qg-slider" id="qg-set-warn" min="5" max="50" value="\${cfgCopy.thresholds.warnPercent ?? 20}">
+              <input type="range" class="qg-slider" id="qg-set-warn" min="10" max="60" value="\${cfgCopy.thresholds.warnPercent ?? 20}">
               <span class="qg-val" id="qg-val-warn">\${cfgCopy.thresholds.warnPercent ?? 20}%</span>
             </div>
           </div>
@@ -2285,7 +2319,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
           <div class="qg-field">
             <label>\${t('stabilizeThreshold')}</label>
             <div class="qg-slider-row">
-              <input type="range" class="qg-slider" id="qg-set-stabilize" min="5" max="35" value="\${cfgCopy.thresholds.stabilizePercent ?? 15}">
+              <input type="range" class="qg-slider" id="qg-set-stabilize" min="8" max="50" value="\${cfgCopy.thresholds.stabilizePercent ?? 15}">
               <span class="qg-val" id="qg-val-stabilize">\${cfgCopy.thresholds.stabilizePercent ?? 15}%</span>
             </div>
           </div>
@@ -2293,7 +2327,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
           <div class="qg-field">
             <label>\${t('checkpointThreshold')}</label>
             <div class="qg-slider-row">
-              <input type="range" class="qg-slider" id="qg-set-checkpoint" min="5" max="25" value="\${cfgCopy.thresholds.checkpointPercent ?? 13}">
+              <input type="range" class="qg-slider" id="qg-set-checkpoint" min="6" max="40" value="\${cfgCopy.thresholds.checkpointPercent ?? 13}">
               <span class="qg-val" id="qg-val-checkpoint">\${cfgCopy.thresholds.checkpointPercent ?? 13}%</span>
             </div>
           </div>
@@ -2301,7 +2335,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
           <div class="qg-field">
             <label>\${t('stopThreshold')}</label>
             <div class="qg-slider-row">
-              <input type="range" class="qg-slider" id="qg-set-stop" min="5" max="25" value="\${cfgCopy.thresholds.stopPercent ?? 12}">
+              <input type="range" class="qg-slider" id="qg-set-stop" min="1" max="30" value="\${cfgCopy.thresholds.stopPercent ?? 12}">
               <span class="qg-val" id="qg-val-stop">\${cfgCopy.thresholds.stopPercent ?? 12}%</span>
             </div>
           </div>
@@ -2309,7 +2343,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
           <div class="qg-field">
             <label>\${t('resumeThreshold')}</label>
             <div class="qg-slider-row">
-              <input type="range" class="qg-slider" id="qg-set-resume" min="40" max="95" value="\${cfgCopy.thresholds.minResumePercent ?? 70}">
+              <input type="range" class="qg-slider" id="qg-set-resume" min="20" max="95" value="\${cfgCopy.thresholds.minResumePercent ?? 70}">
               <span class="qg-val" id="qg-val-resume">\${cfgCopy.thresholds.minResumePercent ?? 70}%</span>
             </div>
           </div>
@@ -2508,20 +2542,94 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       });
     });
 
-    // Dynamic slider updates
-    const bindSlider = (sliderId, valId, key) => {
-      const s = document.getElementById(sliderId);
-      const v = document.getElementById(valId);
-      s?.addEventListener('input', () => {
-        v.textContent = s.value + '%';
-        cfgCopy.thresholds[key] = parseInt(s.value, 10);
-      });
+    // Smart chained slider updates to preserve monotonic invariants
+    const sWarn = document.getElementById('qg-set-warn');
+    const vWarn = document.getElementById('qg-val-warn');
+    const sStab = document.getElementById('qg-set-stabilize');
+    const vStab = document.getElementById('qg-val-stabilize');
+    const sCheck = document.getElementById('qg-set-checkpoint');
+    const vCheck = document.getElementById('qg-val-checkpoint');
+    const sStop = document.getElementById('qg-set-stop');
+    const vStop = document.getElementById('qg-val-stop');
+    const sResume = document.getElementById('qg-set-resume');
+    const vResume = document.getElementById('qg-val-resume');
+
+    const syncSliderUI = () => {
+      if (sWarn && vWarn) { sWarn.value = cfgCopy.thresholds.warnPercent; vWarn.textContent = sWarn.value + '%'; }
+      if (sStab && vStab) { sStab.value = cfgCopy.thresholds.stabilizePercent; vStab.textContent = sStab.value + '%'; }
+      if (sCheck && vCheck) { sCheck.value = cfgCopy.thresholds.checkpointPercent; vCheck.textContent = sCheck.value + '%'; }
+      if (sStop && vStop) { sStop.value = cfgCopy.thresholds.stopPercent; vStop.textContent = sStop.value + '%'; }
+      if (sResume && vResume) { sResume.value = cfgCopy.thresholds.minResumePercent; vResume.textContent = sResume.value + '%'; }
     };
-    bindSlider('qg-set-warn', 'qg-val-warn', 'warnPercent');
-    bindSlider('qg-set-stabilize', 'qg-val-stabilize', 'stabilizePercent');
-    bindSlider('qg-set-checkpoint', 'qg-val-checkpoint', 'checkpointPercent');
-    bindSlider('qg-set-stop', 'qg-val-stop', 'stopPercent');
-    bindSlider('qg-set-resume', 'qg-val-resume', 'minResumePercent');
+
+    sStop?.addEventListener('input', () => {
+      const val = parseInt(sStop.value, 10);
+      cfgCopy.thresholds.stopPercent = val;
+      if (cfgCopy.thresholds.checkpointPercent <= cfgCopy.thresholds.stopPercent) {
+        cfgCopy.thresholds.checkpointPercent = cfgCopy.thresholds.stopPercent + 1;
+      }
+      if (cfgCopy.thresholds.stabilizePercent <= cfgCopy.thresholds.checkpointPercent) {
+        cfgCopy.thresholds.stabilizePercent = cfgCopy.thresholds.checkpointPercent + 2;
+      }
+      if (cfgCopy.thresholds.warnPercent <= cfgCopy.thresholds.stabilizePercent) {
+        cfgCopy.thresholds.warnPercent = cfgCopy.thresholds.stabilizePercent + 5;
+      }
+      if (cfgCopy.thresholds.minResumePercent <= cfgCopy.thresholds.stopPercent) {
+        cfgCopy.thresholds.minResumePercent = Math.min(100, cfgCopy.thresholds.stopPercent + 10);
+      }
+      syncSliderUI();
+    });
+
+    sCheck?.addEventListener('input', () => {
+      const val = parseInt(sCheck.value, 10);
+      cfgCopy.thresholds.checkpointPercent = val;
+      if (cfgCopy.thresholds.checkpointPercent <= cfgCopy.thresholds.stopPercent) {
+        cfgCopy.thresholds.stopPercent = Math.max(1, cfgCopy.thresholds.checkpointPercent - 1);
+      }
+      if (cfgCopy.thresholds.stabilizePercent <= cfgCopy.thresholds.checkpointPercent) {
+        cfgCopy.thresholds.stabilizePercent = cfgCopy.thresholds.checkpointPercent + 2;
+      }
+      if (cfgCopy.thresholds.warnPercent <= cfgCopy.thresholds.stabilizePercent) {
+        cfgCopy.thresholds.warnPercent = cfgCopy.thresholds.stabilizePercent + 5;
+      }
+      syncSliderUI();
+    });
+
+    sStab?.addEventListener('input', () => {
+      const val = parseInt(sStab.value, 10);
+      cfgCopy.thresholds.stabilizePercent = val;
+      if (cfgCopy.thresholds.stabilizePercent <= cfgCopy.thresholds.checkpointPercent) {
+        cfgCopy.thresholds.checkpointPercent = Math.max(2, cfgCopy.thresholds.stabilizePercent - 2);
+        if (cfgCopy.thresholds.checkpointPercent <= cfgCopy.thresholds.stopPercent) {
+          cfgCopy.thresholds.stopPercent = Math.max(1, cfgCopy.thresholds.checkpointPercent - 1);
+        }
+      }
+      if (cfgCopy.thresholds.warnPercent <= cfgCopy.thresholds.stabilizePercent) {
+        cfgCopy.thresholds.warnPercent = cfgCopy.thresholds.stabilizePercent + 5;
+      }
+      syncSliderUI();
+    });
+
+    sWarn?.addEventListener('input', () => {
+      const val = parseInt(sWarn.value, 10);
+      cfgCopy.thresholds.warnPercent = val;
+      if (cfgCopy.thresholds.warnPercent <= cfgCopy.thresholds.stabilizePercent) {
+        cfgCopy.thresholds.stabilizePercent = Math.max(3, cfgCopy.thresholds.warnPercent - 5);
+        if (cfgCopy.thresholds.stabilizePercent <= cfgCopy.thresholds.checkpointPercent) {
+          cfgCopy.thresholds.checkpointPercent = Math.max(2, cfgCopy.thresholds.stabilizePercent - 2);
+          if (cfgCopy.thresholds.checkpointPercent <= cfgCopy.thresholds.stopPercent) {
+            cfgCopy.thresholds.stopPercent = Math.max(1, cfgCopy.thresholds.checkpointPercent - 1);
+          }
+        }
+      }
+      syncSliderUI();
+    });
+
+    sResume?.addEventListener('input', () => {
+      const val = parseInt(sResume.value, 10);
+      cfgCopy.thresholds.minResumePercent = Math.max(cfgCopy.thresholds.stopPercent + 5, val);
+      syncSliderUI();
+    });
 
     const sLimit = document.getElementById('qg-set-transcript-limit');
     const vLimit = document.getElementById('qg-val-transcript-limit');
@@ -3078,9 +3186,9 @@ function initMainProcessHooks() {
         });
       } else if (action === 'RESET_CONFIG') {
         try {
-          if (fs.existsSync(CONFIG_PATH)) {
+          if (fs.existsSync(CONFIG_FILE)) {
             const backupPath = path.join(CONFIG_DIR, `config.backup.pre-reset.${Date.now()}.json`);
-            fs.copyFileSync(CONFIG_PATH, backupPath);
+            fs.copyFileSync(CONFIG_FILE, backupPath);
           }
           saveConfigSafe(DEFAULT_CONFIG);
         } catch (_) {}

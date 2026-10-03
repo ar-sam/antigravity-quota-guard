@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { DEFAULT_CONFIG } = require('./config-defaults.js');
-const { validateConfig, normalizeConfig, deepClone, deepMerge } = require('./config-schema.js');
+const { validateConfig, normalizeConfig, repairConfig, deepClone, deepMerge } = require('./config-schema.js');
 
 function getBaseConfigDir() {
   if (process.env.QUOTA_GUARD_HOME) {
@@ -101,12 +101,12 @@ class ConfigStore {
       this.updateLkg(merged);
       return merged;
     } catch (validationErr) {
-      // Check if it's an older schema version requiring migration
+      // Non-destructive repair: clamp/repair invalid fields while preserving 100% of valid user choices
       try {
-        const migrated = normalizeConfig(parsed);
-        this.saveConfig(migrated);
-        this.updateLkg(migrated);
-        return migrated;
+        const repaired = repairConfig(parsed);
+        this.saveConfig(repaired);
+        this.updateLkg(repaired);
+        return repaired;
       } catch (_) {
         return this.recoverFromCorruption('VALIDATION_ERROR');
       }
@@ -131,11 +131,10 @@ class ConfigStore {
       try {
         const lkgRaw = fs.readFileSync(this.lkgFile, 'utf8');
         const lkgParsed = JSON.parse(lkgRaw);
-        validateConfig(lkgParsed);
-        const lkgMerged = deepMerge(deepClone(DEFAULT_CONFIG), lkgParsed);
-        this.saveConfig(lkgMerged);
+        const lkgRepaired = repairConfig(lkgParsed);
+        this.saveConfig(lkgRepaired);
         return {
-          ...lkgMerged,
+          ...lkgRepaired,
           __recoveredFromLkg: true,
           __corruptionReason: reason,
           __quarantinePath: quarantinePath

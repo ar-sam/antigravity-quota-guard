@@ -13,7 +13,7 @@ const VALID_LANGUAGES = ['fa', 'en'];
 const VALID_HUD_SCOPES = ['fiveHour', 'weekly', 'both'];
 const VALID_DISPLAY_MODES = ['minimal', 'standard', 'expert', 'god'];
 const VALID_BADGE_STYLES = ['detailed', 'compact'];
-const VALID_THEME_PRESETS = ['clinical', 'vibrant', 'minimal', 'custom'];
+const VALID_THEME_PRESETS = ['clinical', 'standard', 'vibrant', 'minimal', 'custom'];
 const VALID_TIMEZONE_MODES = ['system', 'fixed'];
 const VALID_BADGE_TIME_FORMATS = ['relative', 'both'];
 const VALID_RESUME_MODES = ['automatic_when_supported', 'one_click', 'manual'];
@@ -191,14 +191,130 @@ function validateConfig(config) {
 }
 
 /**
+ * Sanitizes and repairs thresholds to guarantee valid monotonic ordering
+ * without losing user customizations.
+ */
+function sanitizeAndRepairThresholds(thresholds = {}) {
+  const defaults = DEFAULT_CONFIG.thresholds;
+  if (!thresholds || typeof thresholds !== 'object') {
+    return deepClone(defaults);
+  }
+
+  let st = (typeof thresholds.stopPercent === 'number' && !Number.isNaN(thresholds.stopPercent))
+    ? Math.max(1, Math.min(50, Math.round(thresholds.stopPercent)))
+    : defaults.stopPercent;
+  let c = (typeof thresholds.checkpointPercent === 'number' && !Number.isNaN(thresholds.checkpointPercent))
+    ? Math.max(3, Math.min(100, Math.round(thresholds.checkpointPercent)))
+    : defaults.checkpointPercent;
+  let s = (typeof thresholds.stabilizePercent === 'number' && !Number.isNaN(thresholds.stabilizePercent))
+    ? Math.max(4, Math.min(100, Math.round(thresholds.stabilizePercent)))
+    : defaults.stabilizePercent;
+  let w = (typeof thresholds.warnPercent === 'number' && !Number.isNaN(thresholds.warnPercent))
+    ? Math.max(5, Math.min(100, Math.round(thresholds.warnPercent)))
+    : defaults.warnPercent;
+  let r = (typeof thresholds.minResumePercent === 'number' && !Number.isNaN(thresholds.minResumePercent))
+    ? Math.max(10, Math.min(100, Math.round(thresholds.minResumePercent)))
+    : defaults.minResumePercent;
+
+  // Enforce monotonicity: st < c < s < w
+  if (c <= st) c = Math.min(100, st + 1);
+  if (s <= c) s = Math.min(100, c + 2);
+  if (w <= s) w = Math.min(100, s + 5);
+  if (r <= st) r = Math.min(100, Math.max(r, st + 5));
+
+  return {
+    warnPercent: w,
+    stabilizePercent: s,
+    checkpointPercent: c,
+    stopPercent: st,
+    minResumePercent: r
+  };
+}
+
+/**
+ * Non-destructively repairs a user configuration by clamping or fixing
+ * any invalid fields while preserving 100% of valid user choices.
+ */
+function repairConfig(userConfig = {}) {
+  assertNoPrototypePollution(userConfig);
+  const base = deepClone(DEFAULT_CONFIG);
+  const merged = deepMerge(base, userConfig || {});
+
+  // Repair language
+  if (!VALID_LANGUAGES.includes(merged.language)) {
+    merged.language = DEFAULT_CONFIG.language;
+  }
+
+  // Repair thresholds
+  merged.thresholds = sanitizeAndRepairThresholds(merged.thresholds);
+
+  // Repair visuals
+  if (merged.visuals) {
+    if (!VALID_HUD_SCOPES.includes(merged.visuals.hudScope)) {
+      merged.visuals.hudScope = DEFAULT_CONFIG.visuals.hudScope;
+    }
+    if (!VALID_DISPLAY_MODES.includes(merged.visuals.displayMode)) {
+      merged.visuals.displayMode = DEFAULT_CONFIG.visuals.displayMode;
+    }
+    if (!VALID_BADGE_STYLES.includes(merged.visuals.badgeStyle)) {
+      merged.visuals.badgeStyle = DEFAULT_CONFIG.visuals.badgeStyle;
+    }
+    if (!VALID_THEME_PRESETS.includes(merged.visuals.themePreset)) {
+      merged.visuals.themePreset = DEFAULT_CONFIG.visuals.themePreset;
+    }
+  }
+
+  // Repair display
+  if (merged.display) {
+    if (!VALID_TIMEZONE_MODES.includes(merged.display.timeZoneMode)) {
+      merged.display.timeZoneMode = DEFAULT_CONFIG.display.timeZoneMode;
+    }
+    if (!VALID_BADGE_TIME_FORMATS.includes(merged.display.badgeTimeFormat)) {
+      merged.display.badgeTimeFormat = DEFAULT_CONFIG.display.badgeTimeFormat;
+    }
+  }
+
+  // Repair handover
+  if (merged.handover) {
+    if (!VALID_RESUME_MODES.includes(merged.handover.resumeMode)) {
+      merged.handover.resumeMode = DEFAULT_CONFIG.handover.resumeMode;
+    }
+  }
+
+  // Repair expert
+  if (merged.expert) {
+    if (!VALID_EXPERT_MODES.includes(merged.expert.mode)) {
+      merged.expert.mode = DEFAULT_CONFIG.expert.mode;
+    }
+    if (!VALID_GOD_MODE_LIFETIMES.includes(merged.expert.godModeLifetime)) {
+      merged.expert.godModeLifetime = DEFAULT_CONFIG.expert.godModeLifetime;
+    }
+  }
+
+  // Repair auth
+  if (merged.auth) {
+    if (!VALID_AUTH_MODES.includes(merged.auth.automationMode)) {
+      merged.auth.automationMode = DEFAULT_CONFIG.auth.automationMode;
+    }
+  }
+
+  // Repair quota
+  if (merged.quota) {
+    if (!VALID_PROVIDER_MODES.includes(merged.quota.providerMode)) {
+      merged.quota.providerMode = DEFAULT_CONFIG.quota.providerMode;
+    }
+  }
+
+  // Validate the final repaired object (should never throw now)
+  validateConfig(merged);
+  return merged;
+}
+
+/**
  * Normalizes and fills defaults for any user configuration input.
  */
 function normalizeConfig(userConfig = {}) {
-  assertNoPrototypePollution(userConfig);
-  const base = deepClone(DEFAULT_CONFIG);
-  const merged = deepMerge(base, userConfig);
-  validateConfig(merged);
-  return merged;
+  return repairConfig(userConfig);
 }
 
 module.exports = {
@@ -216,6 +332,8 @@ module.exports = {
   VALID_PROVIDER_MODES,
   validateConfig,
   normalizeConfig,
+  repairConfig,
+  sanitizeAndRepairThresholds,
   deepClone,
   deepMerge,
   assertNoPrototypePollution

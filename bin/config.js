@@ -6,6 +6,7 @@ const os = require('os');
 
 const CONFIG_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+const CONFIG_LKG_FILE = path.join(CONFIG_DIR, 'config.lkg.json');
 
 const THEME_PRESETS = {
   clinical: {
@@ -140,16 +141,22 @@ function loadConfig() {
       merged.visuals.hudScope = 'fiveHour';
     }
 
-    // Validate sane bounds: stopPercent < stabilizePercent <= warnPercent
-    if (merged.thresholds &&
-        typeof merged.thresholds.stopPercent === 'number' &&
-        typeof merged.thresholds.stabilizePercent === 'number' &&
-        typeof merged.thresholds.warnPercent === 'number') {
-      if (merged.thresholds.stopPercent >= merged.thresholds.stabilizePercent ||
-          merged.thresholds.stabilizePercent > merged.thresholds.warnPercent) {
-        merged.thresholds.stopPercent = 12;
-        merged.thresholds.stabilizePercent = 15;
-        merged.thresholds.warnPercent = 20;
+    // Validate and repair thresholds without losing user settings
+    if (merged.thresholds && typeof merged.thresholds === 'object') {
+      try {
+        const { sanitizeAndRepairThresholds } = require('../core/config-schema.js');
+        merged.thresholds = sanitizeAndRepairThresholds(merged.thresholds);
+      } catch (_) {
+        if (typeof merged.thresholds.stopPercent === 'number' &&
+            typeof merged.thresholds.stabilizePercent === 'number' &&
+            typeof merged.thresholds.warnPercent === 'number') {
+          if (merged.thresholds.stopPercent >= merged.thresholds.stabilizePercent ||
+              merged.thresholds.stabilizePercent > merged.thresholds.warnPercent) {
+            merged.thresholds.stopPercent = 12;
+            merged.thresholds.stabilizePercent = 15;
+            merged.thresholds.warnPercent = 20;
+          }
+        }
       }
     }
     return merged;
@@ -172,18 +179,27 @@ function saveConfig(cfg) {
     if (!merged.visuals) merged.visuals = {};
     merged.visuals.hudScope = 'fiveHour';
   }
-  if (merged.thresholds &&
-      typeof merged.thresholds.stopPercent === 'number' &&
-      typeof merged.thresholds.stabilizePercent === 'number' &&
-      typeof merged.thresholds.warnPercent === 'number') {
-    if (merged.thresholds.stopPercent >= merged.thresholds.stabilizePercent ||
-        merged.thresholds.stabilizePercent > merged.thresholds.warnPercent) {
-      merged.thresholds.stopPercent = 12;
-      merged.thresholds.stabilizePercent = 15;
-      merged.thresholds.warnPercent = 20;
+  if (merged.thresholds && typeof merged.thresholds === 'object') {
+    try {
+      const { sanitizeAndRepairThresholds } = require('../core/config-schema.js');
+      merged.thresholds = sanitizeAndRepairThresholds(merged.thresholds);
+    } catch (_) {
+      if (typeof merged.thresholds.stopPercent === 'number' &&
+          typeof merged.thresholds.stabilizePercent === 'number' &&
+          typeof merged.thresholds.warnPercent === 'number') {
+        if (merged.thresholds.stopPercent >= merged.thresholds.stabilizePercent ||
+            merged.thresholds.stabilizePercent > merged.thresholds.warnPercent) {
+          merged.thresholds.stopPercent = 12;
+          merged.thresholds.stabilizePercent = 15;
+          merged.thresholds.warnPercent = 20;
+        }
+      }
     }
   }
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(CONFIG_LKG_FILE, JSON.stringify(merged, null, 2), 'utf8');
+  } catch (_) {}
   return merged;
 }
 

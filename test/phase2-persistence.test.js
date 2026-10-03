@@ -95,6 +95,23 @@ describe('Phase 2: Persistence Invariants, LKG Engine & Secure Local Storage', (
       const fresh = store.loadConfig();
       assert.strictEqual(fresh.thresholds.warnPercent, DEFAULT_CONFIG.thresholds.warnPercent);
     });
+
+    it('Non-destructively repairs invalid fields without resetting custom user preferences', () => {
+      const store = new ConfigStore({ baseDir: tmpDir });
+      // Write partial config with user customizations and one invalid threshold ordering
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({
+        language: 'en',
+        visuals: { themePreset: 'standard', hudScope: 'both' },
+        thresholds: { stopPercent: 25, checkpointPercent: 10 }
+      }), 'utf8');
+
+      const loaded = store.loadConfig();
+      assert.strictEqual(loaded.language, 'en', 'Must preserve customized language');
+      assert.strictEqual(loaded.visuals.themePreset, 'standard', 'Must preserve standard theme preset');
+      assert.strictEqual(loaded.visuals.hudScope, 'both', 'Must preserve customized hudScope');
+      assert.ok(loaded.thresholds.checkpointPercent > loaded.thresholds.stopPercent, 'Must repair threshold ordering');
+      assert.strictEqual(loaded.__recoveredFromDefaults, undefined, 'Must NOT wipe out to defaults');
+    });
   });
 
   describe('2.2 Secure Local Storage & Fingerprinting', () => {
