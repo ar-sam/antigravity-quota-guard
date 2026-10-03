@@ -238,15 +238,21 @@ class CliStatuslineFeedAdapter {
     // Forward byte-for-byte to user's original command
     if (originalCommand) {
       const origOut = await new Promise((resolve) => {
-        const proc = spawn(originalCommand, { shell: true, stdio: ['pipe', 'pipe', 'pipe'] });
+        if (!originalCommand || typeof originalCommand !== 'string') return resolve('');
+        const hasShellMeta = /[|&;<>()$`\\]/.test(originalCommand);
+        const parts = originalCommand.trim().split(/\s+/);
+        const proc = hasShellMeta
+          ? spawn(originalCommand, { shell: true, stdio: ['pipe', 'pipe', 'pipe'] })
+          : spawn(parts[0], parts.slice(1), { shell: false, stdio: ['pipe', 'pipe', 'pipe'] });
+
         let out = '';
-        proc.stdout.on('data', chunk => { out += chunk; });
+        proc.stdout?.on('data', chunk => { out += chunk; });
         proc.on('close', () => resolve(out));
         proc.on('error', () => resolve(''));
-        proc.stdin.on('error', () => {});
+        proc.stdin?.on('error', () => {});
         try {
-          proc.stdin.write(rawInput);
-          proc.stdin.end();
+          proc.stdin?.write(rawInput);
+          proc.stdin?.end();
         } catch (_) {}
       });
 
@@ -298,14 +304,18 @@ if (require.main === module) {
 
   const adapter = new CliStatuslineFeedAdapter({ originalCommand, coordinatorClient });
 
-  let raw = '';
-  process.stdin.setEncoding('utf8');
-  process.stdin.on('data', chunk => { raw += chunk; });
-  process.stdin.on('end', async () => {
-    if (raw.trim()) {
-      const out = await adapter.processStatuslineTick(raw);
+  const readline = require('readline');
+  const rl = readline.createInterface({ input: process.stdin, terminal: false });
+
+  rl.on('line', async (line) => {
+    const trimmed = line.trim();
+    if (trimmed) {
+      const out = await adapter.processStatuslineTick(trimmed);
       if (out) process.stdout.write(out);
     }
+  });
+
+  rl.on('close', () => {
     process.exit(0);
   });
 }

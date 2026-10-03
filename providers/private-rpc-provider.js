@@ -74,6 +74,54 @@ class PrivateRpcProvider {
   }
 
   /**
+   * Discovers running language server port and CSRF token.
+   * Modularized from payload.js for dedicated provider isolation.
+   */
+  discoverCredentials() {
+    // 1. Electron languageServer export if present in global/require context
+    try {
+      const ls = require('./languageServer.js');
+      const port = typeof ls.getLsPort === 'function' ? ls.getLsPort() : 0;
+      const proc = typeof ls.getLsProcess === 'function' ? ls.getLsProcess() : null;
+      let token = null;
+      if (proc && Array.isArray(proc.spawnargs)) {
+        const idx = proc.spawnargs.indexOf('--csrf_token');
+        if (idx !== -1 && idx + 1 < proc.spawnargs.length) {
+          token = proc.spawnargs[idx + 1];
+        }
+      }
+      if (port > 0 && token) return { port, token };
+    } catch (_) {}
+
+    // 2. Process list discovery (macOS / Linux non-browser)
+    if (process.type !== 'browser' && process.platform !== 'win32') {
+      try {
+        const { execSync } = require('child_process');
+        const ps = execSync('ps aux | grep -i language_server | grep -v grep', {
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 1500
+        }).toString();
+        const tokenMatch = ps.match(/--csrf_token\s+([a-f0-9-]+)/i);
+        const pidMatch = ps.match(/\s+(\d+)\s+.*language_server/);
+        if (tokenMatch && pidMatch) {
+          const token = tokenMatch[1];
+          const pid = pidMatch[1];
+          const lsof = execSync(`lsof -Pan -p ${pid} -i -sTCP:LISTEN`, {
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 1500
+          }).toString();
+          const portMatch = lsof.match(/:(\d+)\s+\(LISTEN\)/);
+          if (portMatch) {
+            return { port: parseInt(portMatch[1], 10), token };
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  /**
    * Fetches quota via Private RPC.
    * Returns fail-closed UNAVAILABLE observation.
    */
