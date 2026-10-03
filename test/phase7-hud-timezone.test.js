@@ -25,7 +25,8 @@ const {
 
 const {
   generateHudCss,
-  renderHudSnapshot
+  renderHudSnapshot,
+  playWebAudioChime
 } = require('../ui/desktop-hud/hud-renderer');
 
 test('Phase 7: Desktop HUD Presentation Adapter & Timezone Engine', async (t) => {
@@ -132,6 +133,21 @@ test('Phase 7: Desktop HUD Presentation Adapter & Timezone Engine', async (t) =>
     assert.equal(sanitizedState.rawEmail, undefined, 'Must strip rawEmail');
     assert.equal(sanitizedState.apiKey, undefined, 'Must strip apiKey');
     assert.equal(sanitizedState.transcript, undefined, 'Must strip transcript');
+
+    // 4. Clean Electron IPC Registration
+    const handlers = {};
+    const mockIpcMain = {
+      handle: (ch, fn) => { handlers[ch] = fn; },
+      removeHandler: () => {}
+    };
+    const mockBrowserWindow = {
+      fromWebContents: () => ({ id: 101, url: 'file:///app/main.html', title: 'Editor' })
+    };
+    const attached = bridge.attachElectronIpc(mockIpcMain, mockBrowserWindow);
+    assert.equal(attached, true, 'attachElectronIpc must register handlers');
+    assert.ok(typeof handlers['QUOTA_GUARD_GET_RUNTIME_STATE'] === 'function');
+    const ipcRes = await handlers['QUOTA_GUARD_GET_RUNTIME_STATE']({ sender: {} }, null);
+    assert.equal(ipcRes.revision, 4);
   });
 
   await t.test('7.3 HUD Renderer: Floating Panel, 42px Status Pill & Persian Typography', () => {
@@ -181,5 +197,9 @@ test('Phase 7: Desktop HUD Presentation Adapter & Timezone Engine', async (t) =>
 
     assert.ok(unknownHtml.includes('--%'));
     assert.ok(unknownHtml.includes('ادامه موقت بدون سهمیه'));
+
+    // 5. Web Audio API chime function is exported and safe
+    assert.equal(typeof playWebAudioChime, 'function');
+    assert.equal(playWebAudioChime(), false); // Returns false cleanly in Node environment
   });
 });

@@ -236,7 +236,52 @@ function renderHudSnapshot(state = {}, config = {}, options = {}) {
 `;
 }
 
+/**
+ * Plays a gentle, non-blocking chime using the Web Audio API.
+ * Synthesizes a harmonic dual-tone chime (D5: 587.33Hz, A5: 880.00Hz)
+ * without requiring external audio files or OS-specific player binaries.
+ */
+function playWebAudioChime() {
+  try {
+    const AudioContextClass = typeof window !== 'undefined'
+      ? (window.AudioContext || window.webkitAudioContext)
+      : null;
+    if (!AudioContextClass) return false;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    // Tone 1: 587.33 Hz (D5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Tone 2: 880.00 Hz (A5)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880.00, now + 0.12);
+    gain2.gain.setValueAtTime(0.12, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.65);
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 module.exports = {
   generateHudCss,
-  renderHudSnapshot
+  renderHudSnapshot,
+  playWebAudioChime
 };

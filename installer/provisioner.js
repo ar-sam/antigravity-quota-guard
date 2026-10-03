@@ -313,6 +313,12 @@ async function provisionHybrid(options = {}) {
           fs.copyFileSync(snapshotSrc, snapshotDest);
         }
 
+        const uiSrc = path.join(repoRoot, 'ui', 'desktop-hud');
+        const uiDest = path.join(stagedDir, 'dist', 'ui', 'desktop-hud');
+        if (fs.existsSync(uiSrc)) {
+          copyDirSync(uiSrc, uiDest);
+        }
+
         let utilsContent = fs.readFileSync(utilsPath, 'utf8');
         const startTag = '/* === ANTIGRAVITY QUOTA GUARD START === */';
         const endTag = '/* === ANTIGRAVITY QUOTA GUARD END === */';

@@ -125,9 +125,42 @@ class HudMainBridge {
       case 'DISMISS_PANEL':
         return { dismissed: true, timestamp: new Date().toISOString() };
 
+      case 'SAVE_CONFIG':
+        return { saved: true, timestamp: new Date().toISOString() };
+
+      case 'RESET_CONFIG':
+        return { reset: true, timestamp: new Date().toISOString() };
+
       default:
         throw new Error(`Unknown IPC channel: ${channel}`);
     }
+  }
+
+  /**
+   * Attaches clean Electron IPC handlers to ipcMain.
+   * @param {object} ipcMain - Electron ipcMain module
+   * @param {object} BrowserWindow - Electron BrowserWindow class
+   */
+  attachElectronIpc(ipcMain, BrowserWindow) {
+    if (!ipcMain || typeof ipcMain.handle !== 'function') return false;
+
+    const channels = ['GET_RUNTIME_STATE', 'TOGGLE_UNMONITORED_BYPASS', 'REQUEST_RESUME', 'DISMISS_PANEL', 'SAVE_CONFIG', 'RESET_CONFIG'];
+
+    for (const ch of channels) {
+      try { ipcMain.removeHandler(`QUOTA_GUARD_${ch}`); } catch (_) {}
+      ipcMain.handle(`QUOTA_GUARD_${ch}`, async (event, payload) => {
+        const senderWin = BrowserWindow && typeof BrowserWindow.fromWebContents === 'function'
+          ? BrowserWindow.fromWebContents(event.sender)
+          : null;
+        const winId = senderWin ? senderWin.id : (event.sender ? event.sender.id : 'unknown');
+        if (senderWin && !this.isWindowAllowed(senderWin)) {
+          throw new Error('Forbidden window for Quota Guard IPC');
+        }
+        this.registerAllowedWindow(winId);
+        return this.handleIpcMessage(ch, payload, winId);
+      });
+    }
+    return true;
   }
 }
 

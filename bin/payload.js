@@ -675,6 +675,49 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
   let lastActiveModelString = '';
   let guideEscListener = null;
 
+  function dispatchAction(action) {
+    try {
+      if (window.require) {
+        const { ipcRenderer } = window.require('electron');
+        if (ipcRenderer && typeof ipcRenderer.send === 'function') {
+          ipcRenderer.send('QUOTA_GUARD_IPC', action);
+        }
+      }
+    } catch (_) {}
+    console.log('__QUOTA_GUARD_ACTION__:' + action);
+  }
+
+  function playWebAudioChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880.0, now + 0.12);
+      gain2.gain.setValueAtTime(0.12, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.65);
+    } catch (_) {}
+  }
+  window.__QUOTA_GUARD_PLAY_CHIME__ = playWebAudioChime;
+
   // Ensure default structures exist
   if (!quota || typeof quota !== 'object') quota = {};
   if (!quota.gemini) {
@@ -2651,7 +2694,8 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     // Sound test
     document.getElementById('qg-test-sound')?.addEventListener('click', () => {
       const soundName = document.getElementById('qg-set-sound-name').value;
-      console.log('__QUOTA_GUARD_ACTION__:PLAY_CHIME:' + soundName);
+      playWebAudioChime();
+      dispatchAction('PLAY_CHIME:' + soundName);
     });
 
     // Open Checkpoints Folder
@@ -2792,7 +2836,8 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
 
     // Audio chime
     if (config.audio && config.audio.soundEnabled) {
-      console.log('__QUOTA_GUARD_ACTION__:PLAY_CHIME:' + (config.audio.soundName || 'Glass'));
+      playWebAudioChime();
+      dispatchAction('PLAY_CHIME:' + (config.audio.soundName || 'Glass'));
     }
     // Desktop notification
     if (config.audio && config.audio.desktopNotification) {
@@ -3141,7 +3186,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
 // Electron Main Process Hook
 function initMainProcessHooks() {
   const electron = require('electron');
-  const { app, BrowserWindow, shell } = electron;
+  const { app, BrowserWindow, shell, ipcMain } = electron;
 
   // Forbidden window patterns for security & OAuth isolation (R2 Invariant)
   const FORBIDDEN_WINDOW_PATTERNS = [
@@ -3167,112 +3212,130 @@ function initMainProcessHooks() {
     return true;
   }
 
+  function handleRendererAction(action, win) {
+    if (!action || !win || !isWindowAllowed(win)) return;
+
+    if (action === 'CHECK_QUOTA') {
+      getLatestQuotaData((err, data) => {
+        if (!err && data && isWindowAllowed(win)) {
+          win.webContents.executeJavaScript(`window.__QUOTA_GUARD_UPDATE__ && window.__QUOTA_GUARD_UPDATE__(${JSON.stringify(data)});`).catch(() => {});
+        }
+      });
+    } else if (action === 'RESET_CONFIG') {
+      try {
+        if (fs.existsSync(CONFIG_FILE)) {
+          const backupPath = path.join(CONFIG_DIR, `config.backup.pre-reset.${Date.now()}.json`);
+          fs.copyFileSync(CONFIG_FILE, backupPath);
+        }
+        saveConfigSafe(DEFAULT_CONFIG);
+      } catch (_) {}
+    } else if (action.startsWith('SAVE_CONFIG:')) {
+      const payload = action.replace('SAVE_CONFIG:', '');
+      try {
+        const parsed = JSON.parse(payload);
+        saveConfigSafe(parsed);
+      } catch (_) {}
+    } else if (action.startsWith('PLAY_CHIME:')) {
+      const soundName = action.replace('PLAY_CHIME:', '');
+      playChime(soundName);
+    } else if (action === 'OPEN_CHECKPOINTS_DIR') {
+      if (!fs.existsSync(CHECKPOINTS_DIR)) fs.mkdirSync(CHECKPOINTS_DIR, { recursive: true });
+      shell.openPath(CHECKPOINTS_DIR);
+    } else if (action === 'OPEN_SETTINGS_WINDOW') {
+      // Trigger Antigravity application settings shortcut (Cmd+, on macOS)
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: ',', modifiers: ['command'] });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: ',', modifiers: ['command'] });
+    } else if (action.startsWith('CREATE_SNAPSHOT:')) {
+      const metadataPayload = action.replace('CREATE_SNAPSHOT:', '');
+      try {
+        const metadata = JSON.parse(metadataPayload);
+        let snapshotEngine = null;
+        try {
+          snapshotEngine = require('./snapshot.js');
+        } catch (_) {
+          try {
+            snapshotEngine = require(path.join(__dirname, 'snapshot.js'));
+          } catch (_) {
+            try {
+              snapshotEngine = require('./quota-guard-snapshot.js');
+            } catch (_) {}
+          }
+        }
+
+        if (snapshotEngine && typeof snapshotEngine.createSnapshot === 'function') {
+          const onProg = (progress) => {
+            if (win && win.webContents && !win.isDestroyed()) {
+              win.webContents.executeJavaScript(`
+                window.__QUOTA_GUARD_SNAPSHOT_PROGRESS__ && window.__QUOTA_GUARD_SNAPSHOT_PROGRESS__(${JSON.stringify(progress)});
+              `).catch(() => {});
+            }
+          };
+          metadata.onProgress = onProg;
+          snapshotEngine.createSnapshot(metadata, onProg).catch(err => {
+            console.error('[QuotaGuard] createSnapshot error:', err);
+          });
+        } else {
+          console.error('[QuotaGuard] Snapshot engine not found');
+        }
+      } catch (err) {
+        console.error('[QuotaGuard] Failed to parse CREATE_SNAPSHOT metadata:', err);
+      }
+    } else if (action.startsWith('COPY_HANDOFF:')) {
+      const copyPayload = action.replace('COPY_HANDOFF:', '');
+      try {
+        const parsed = JSON.parse(copyPayload);
+        const text = parsed.markdown || parsed.text || '';
+        if (text && electron.clipboard) {
+          electron.clipboard.writeText(text);
+        }
+      } catch (_) {}
+    } else if (action.startsWith('SHOW_NOTIFICATION:')) {
+      const notifPayload = action.replace('SHOW_NOTIFICATION:', '');
+      try {
+        const parsed = JSON.parse(notifPayload);
+        if (electron.Notification && typeof electron.Notification.isSupported === 'function' && electron.Notification.isSupported()) {
+          new electron.Notification({
+            title: parsed.title || 'Antigravity Quota Guard',
+            body: parsed.body || 'Quota safety threshold reached.',
+            silent: true
+          }).show();
+        }
+      } catch (_) {}
+    } else if (action.startsWith('SYNC_LIVE_DATA:')) {
+      const payload = action.replace('SYNC_LIVE_DATA:', '');
+      try {
+        const parsed = JSON.parse(payload);
+        if (!fs.existsSync(RUNTIME_DIR)) fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+        const liveCacheFile = path.join(RUNTIME_DIR, 'live_quota.json');
+        fs.writeFileSync(liveCacheFile, JSON.stringify(parsed, null, 2), 'utf8');
+      } catch (_) {}
+    }
+  }
+
+  // Primary: Electron IPC listener
+  if (ipcMain && typeof ipcMain.on === 'function') {
+    try { ipcMain.removeAllListeners('QUOTA_GUARD_IPC'); } catch (_) {}
+    ipcMain.on('QUOTA_GUARD_IPC', (event, action) => {
+      const senderWin = BrowserWindow && typeof BrowserWindow.fromWebContents === 'function'
+        ? BrowserWindow.fromWebContents(event.sender)
+        : null;
+      if (senderWin && isWindowAllowed(senderWin)) {
+        handleRendererAction(action, senderWin);
+      }
+    });
+  }
+
   // Listen to windows
   function hookWindow(win) {
     if (!win || !win.webContents) return;
     if (!isWindowAllowed(win)) return;
 
-    // Listen to console actions from renderer
+    // Secondary / Fallback: console-message listener
     win.webContents.on('console-message', (event, level, message) => {
       if (!isWindowAllowed(win)) return;
       if (typeof message !== 'string' || !message.startsWith('__QUOTA_GUARD_ACTION__:')) return;
       const action = message.replace('__QUOTA_GUARD_ACTION__:', '');
-
-      if (action === 'CHECK_QUOTA') {
-        getLatestQuotaData((err, data) => {
-          if (!err && data && isWindowAllowed(win)) {
-            win.webContents.executeJavaScript(`window.__QUOTA_GUARD_UPDATE__ && window.__QUOTA_GUARD_UPDATE__(${JSON.stringify(data)});`).catch(() => {});
-          }
-        });
-      } else if (action === 'RESET_CONFIG') {
-        try {
-          if (fs.existsSync(CONFIG_FILE)) {
-            const backupPath = path.join(CONFIG_DIR, `config.backup.pre-reset.${Date.now()}.json`);
-            fs.copyFileSync(CONFIG_FILE, backupPath);
-          }
-          saveConfigSafe(DEFAULT_CONFIG);
-        } catch (_) {}
-      } else if (action.startsWith('SAVE_CONFIG:')) {
-        const payload = action.replace('SAVE_CONFIG:', '');
-        try {
-          const parsed = JSON.parse(payload);
-          saveConfigSafe(parsed);
-        } catch (_) {}
-      } else if (action.startsWith('PLAY_CHIME:')) {
-        const soundName = action.replace('PLAY_CHIME:', '');
-        playChime(soundName);
-      } else if (action === 'OPEN_CHECKPOINTS_DIR') {
-        if (!fs.existsSync(CHECKPOINTS_DIR)) fs.mkdirSync(CHECKPOINTS_DIR, { recursive: true });
-        shell.openPath(CHECKPOINTS_DIR);
-      } else if (action === 'OPEN_SETTINGS_WINDOW') {
-        // Trigger Antigravity application settings shortcut (Cmd+, on macOS)
-        win.webContents.sendInputEvent({ type: 'keyDown', keyCode: ',', modifiers: ['command'] });
-        win.webContents.sendInputEvent({ type: 'keyUp', keyCode: ',', modifiers: ['command'] });
-      } else if (action.startsWith('CREATE_SNAPSHOT:')) {
-        const metadataPayload = action.replace('CREATE_SNAPSHOT:', '');
-        try {
-          const metadata = JSON.parse(metadataPayload);
-          let snapshotEngine = null;
-          try {
-            snapshotEngine = require('./snapshot.js');
-          } catch (_) {
-            try {
-              snapshotEngine = require(path.join(__dirname, 'snapshot.js'));
-            } catch (_) {
-              try {
-                snapshotEngine = require('./quota-guard-snapshot.js');
-              } catch (_) {}
-            }
-          }
-
-          if (snapshotEngine && typeof snapshotEngine.createSnapshot === 'function') {
-            const onProg = (progress) => {
-              if (win && win.webContents && !win.isDestroyed()) {
-                win.webContents.executeJavaScript(`
-                  window.__QUOTA_GUARD_SNAPSHOT_PROGRESS__ && window.__QUOTA_GUARD_SNAPSHOT_PROGRESS__(${JSON.stringify(progress)});
-                `).catch(() => {});
-              }
-            };
-            metadata.onProgress = onProg;
-            snapshotEngine.createSnapshot(metadata, onProg).catch(err => {
-              console.error('[QuotaGuard] createSnapshot error:', err);
-            });
-          } else {
-            console.error('[QuotaGuard] Snapshot engine not found');
-          }
-        } catch (err) {
-          console.error('[QuotaGuard] Failed to parse CREATE_SNAPSHOT metadata:', err);
-        }
-      } else if (action.startsWith('COPY_HANDOFF:')) {
-        const copyPayload = action.replace('COPY_HANDOFF:', '');
-        try {
-          const parsed = JSON.parse(copyPayload);
-          const text = parsed.markdown || parsed.text || '';
-          if (text && electron.clipboard) {
-            electron.clipboard.writeText(text);
-          }
-        } catch (_) {}
-      } else if (action.startsWith('SHOW_NOTIFICATION:')) {
-        const notifPayload = action.replace('SHOW_NOTIFICATION:', '');
-        try {
-          const parsed = JSON.parse(notifPayload);
-          if (electron.Notification && typeof electron.Notification.isSupported === 'function' && electron.Notification.isSupported()) {
-            new electron.Notification({
-              title: parsed.title || 'Antigravity Quota Guard',
-              body: parsed.body || 'Quota safety threshold reached.',
-              silent: true
-            }).show();
-          }
-        } catch (_) {}
-      } else if (action.startsWith('SYNC_LIVE_DATA:')) {
-        const payload = action.replace('SYNC_LIVE_DATA:', '');
-        try {
-          const parsed = JSON.parse(payload);
-          if (!fs.existsSync(RUNTIME_DIR)) fs.mkdirSync(RUNTIME_DIR, { recursive: true });
-          const liveCacheFile = path.join(RUNTIME_DIR, 'live_quota.json');
-          fs.writeFileSync(liveCacheFile, JSON.stringify(parsed, null, 2), 'utf8');
-        } catch (_) {}
-      }
+      handleRendererAction(action, win);
     });
 
     win.webContents.on('dom-ready', () => {
