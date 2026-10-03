@@ -486,7 +486,8 @@ async function main() {
     { file: 'phase8-patcher-doctor.test.js', label: 'Phase 8: Transactional ASAR Patcher, Backup & Doctor' },
     { file: 'phase9-docs-parity.test.js', label: 'Phase 9: Docs-as-Code Pipeline & Mechanical Parity' },
     { file: 'contract-tests.js', label: 'Contract: Official Antigravity Schemas & I/O Contracts' },
-    { file: 'integration.test.js', label: 'Integration: CLI Status & Runtime Invariants' }
+    { file: 'integration.test.js', label: 'Integration: CLI Status & Runtime Invariants' },
+    { file: 'e2e-pipeline.test.js', label: 'E2E: Complete End-to-End Pipeline Loop' }
   ];
 
   let allSuitesPassed = true;

@@ -623,5 +623,7 @@ module.exports = {
   startCoordinator,
   getRunDir,
   getSocketPath,
-  getDerivedRuntimeStatePath
+  getDerivedRuntimeStatePath,
+  isSocketResponding,
+  isProcessAlive
 };

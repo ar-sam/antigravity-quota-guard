@@ -16,9 +16,19 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+function getBaseDir() {
+  if (process.env.QUOTA_GUARD_HOME) {
+    return process.env.QUOTA_GUARD_HOME;
+  }
+  return path.join(os.homedir(), '.gemini', 'antigravity-quota-guard');
+}
 
-const COORDINATOR_SOCKET = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'run', 'coordinator.sock');
-const RUNTIME_STATE_PATH = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'runtime-state.json');
+function getRuntimeStatePath() {
+  if (process.env.QUOTA_GUARD_RUNTIME_STATE) {
+    return process.env.QUOTA_GUARD_RUNTIME_STATE;
+  }
+  return path.join(getBaseDir(), 'runtime-state.json');
+}
 
 const SERVER_INFO = {
   name: 'quota_guard',
@@ -52,9 +62,10 @@ const TOOLS = [
 const EXPORTED_READ_ONLY_TOOLS = Object.freeze(TOOLS.map(t => `quota_guard.${t.name}`));
 
 function readRuntimeState() {
+  const p = getRuntimeStatePath();
   try {
-    if (fs.existsSync(RUNTIME_STATE_PATH)) {
-      return JSON.parse(fs.readFileSync(RUNTIME_STATE_PATH, 'utf8'));
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
     }
   } catch (_) {}
   return null;
@@ -192,8 +203,15 @@ function handleRequest(req) {
   }
 }
 
-// Export for backward compatibility with PreToolUse allowlist check
-module.exports = { EXPORTED_READ_ONLY_TOOLS };
+// Export for backward compatibility with PreToolUse allowlist check and test suites
+module.exports = {
+  EXPORTED_READ_ONLY_TOOLS,
+  executeTool,
+  queryCoordinatorSync,
+  readRuntimeState,
+  getRuntimeStatePath,
+  getBaseDir
+};
 
 // Main: start JSON-RPC stdio loop ONLY when executed directly as a standalone process
 if (require.main === module) {

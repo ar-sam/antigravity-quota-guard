@@ -64,7 +64,7 @@ class DocsGenerator {
     md += '| `stabilizePercent` | 15% | Pre-staging stabilize tier | `stabilize > checkpoint` |\n';
     md += '| `checkpointPercent` | 13% | Silent background snapshot creation | `checkpoint > stop` |\n';
     md += '| `stopPercent` | 12% | Turn boundary model loop halt | `stop >= 5` |\n';
-    md += '| `minResumePercent` | 30% | Minimum verified quota required to resume | `minResume > stop` |\n\n';
+    md += '| `minResumePercent` | 70% | Minimum verified quota required to resume | `minResume > stop` |\n\n';
 
     md += '## Full Default Configuration JSON\n\n```json\n';
     md += JSON.stringify(DEFAULT_CONFIG, null, 2);

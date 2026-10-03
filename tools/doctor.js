@@ -14,6 +14,7 @@ const os = require('os');
 
 const { sha256File } = require('../installer/backup-manager');
 const { resolveEffectiveTimeZone } = require('../ui/desktop-hud/timezone-manager');
+const { isProcessAlive } = require('../core/coordinator');
 
 class QuotaGuardDoctor {
   constructor(options = {}) {
@@ -133,6 +134,26 @@ class QuotaGuardDoctor {
       status: 'OK'
     };
 
+    // 8. Coordinator Socket & Liveness Check
+    const socketPath = path.join(this._configDir, 'run', 'coordinator.sock');
+    const pidFile = path.join(this._configDir, 'run', 'coordinator.pid');
+    let coordRunning = false;
+    let coordPid = null;
+    if (fs.existsSync(pidFile)) {
+      try {
+        coordPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+        if (coordPid && isProcessAlive(coordPid)) {
+          coordRunning = true;
+        }
+      } catch {}
+    }
+    report.checks.coordinator = {
+      socketExists: fs.existsSync(socketPath),
+      pid: coordPid,
+      running: coordRunning,
+      status: coordRunning ? 'RUNNING' : 'STOPPED'
+    };
+
     // Determine overall status
     if (issues.length === 0) {
       report.status = 'HEALTHY';
@@ -165,6 +186,7 @@ class QuotaGuardDoctor {
     console.log(`  • User Configuration:  ${diag.checks.configuration.status === 'OK' ? '✅ Initialized' : 'ℹ️ Default / Unset'}`);
     console.log(`  • Secure Storage:      ${diag.checks.secureStorage.status === 'OK' ? '✅ 0600 Secured' : 'ℹ️ Not set / Pending'}`);
     console.log(`  • Checkpoints Vault:   ✅ Active (${diag.checks.checkpoints.count} saved)`);
+    console.log(`  • Coordinator Daemon:  ${diag.checks.coordinator?.running ? '✅ Running (PID ' + diag.checks.coordinator.pid + ')' : 'ℹ️ Stopped / Idle'}`);
     console.log(`  • Active Timezone:     🌐 ${diag.checks.displayEnvironment.timeZone} (${diag.checks.displayEnvironment.locale})`);
 
     if (diag.issues.length > 0) {
