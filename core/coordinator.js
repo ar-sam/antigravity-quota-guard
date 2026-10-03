@@ -50,6 +50,30 @@ function isProcessAlive(pid) {
   }
 }
 
+/**
+ * Probes the socket to verify if a coordinator process is actively listening.
+ */
+function isSocketResponding(socketPath) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(socketPath)) return resolve(false);
+    const client = net.createConnection(socketPath);
+    const timer = setTimeout(() => {
+      try { client.destroy(); } catch (_) {}
+      resolve(false);
+    }, 200);
+    client.on('connect', () => {
+      clearTimeout(timer);
+      try { client.end(); } catch (_) {}
+      resolve(true);
+    });
+    client.on('error', () => {
+      clearTimeout(timer);
+      try { client.destroy(); } catch (_) {}
+      resolve(false);
+    });
+  });
+}
+
 class GlobalCoordinator {
   constructor(options = {}) {
     this.runDir = options.runDir || getRunDir();
@@ -110,9 +134,12 @@ class GlobalCoordinator {
         existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
       } catch (_) {}
       if (existingPid && isProcessAlive(existingPid)) {
-        throw new Error(`Coordinator already running with PID ${existingPid}. Only one coordinator instance allowed per socket path.`);
+        const socketAlive = await isSocketResponding(this.socketPath);
+        if (socketAlive) {
+          throw new Error(`Coordinator already running with PID ${existingPid}. Only one coordinator instance allowed per socket path.`);
+        }
       }
-      // Stale PID file from dead process — safe to clean up
+      // Stale PID file from dead process or unresponsive socket — safe to clean up
       try { fs.unlinkSync(pidFile); } catch (_) {}
     }
 
@@ -197,6 +224,10 @@ class GlobalCoordinator {
 
     socket.on('data', (chunk) => {
       buffer += chunk.toString('utf8');
+      if (buffer.length > 64 * 1024) {
+        socket.destroy();
+        return;
+      }
       let boundary;
       while ((boundary = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, boundary).trim();

@@ -16,6 +16,11 @@ const net = require('net');
 const os = require('os');
 const { HookHandler } = require('./hook-handler.js');
 
+let SnapshotEngine = null;
+try {
+  SnapshotEngine = require('../../core/snapshot-engine.js').SnapshotEngine;
+} catch (_) {}
+
 function sendCoordinatorOperation(operation, payload = {}) {
   return new Promise((resolve) => {
     const socketPath = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'run', 'coordinator.sock');
@@ -103,9 +108,11 @@ async function main() {
 
   // Load authoritative runtime state from Coordinator's derived projection
   const runtime = loadRuntimeState();
+  const snapshotEngine = SnapshotEngine ? new SnapshotEngine() : null;
   const handler = new HookHandler({
     initialState: runtime.state,
-    stopPercent: runtime.stopPercent
+    stopPercent: runtime.stopPercent,
+    snapshotEngine
   });
   if (runtime.quotaHealth && !context.quotaHealth) {
     context.quotaHealth = runtime.quotaHealth;

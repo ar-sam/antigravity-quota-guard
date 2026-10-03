@@ -228,9 +228,16 @@ class SnapshotEngine {
       const artifacts = scanArtifactsBounded(artifactDirectoryPath);
 
       // 3. Metadata assembly
-      const effectiveQuota = quotaHealth
-        ? (quotaHealth.gemini?.fiveHour ?? quotaHealth.claude_gpt?.fiveHour ?? null)
-        : null;
+      let effectiveQuota = null;
+      if (quotaHealth) {
+        try {
+          const { calculateEffectiveQuota } = require('./quota-policy.js');
+          effectiveQuota = calculateEffectiveQuota(quotaHealth, modelName);
+        } catch (_) {}
+        if (effectiveQuota === null) {
+          effectiveQuota = quotaHealth.effectiveQuota ?? (quotaHealth.gemini?.fiveHour ?? quotaHealth.claude_gpt?.fiveHour ?? null);
+        }
+      }
 
       const checkpointData = {
         checkpointId,

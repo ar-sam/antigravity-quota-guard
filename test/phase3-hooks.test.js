@@ -7,6 +7,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const { HookHandler } = require('../integrations/antigravity-hook/hook-handler.js');
 const { EXPORTED_READ_ONLY_TOOLS } = require('../mcp/read-only-server.js');
@@ -139,6 +142,41 @@ describe('Phase 3: Dual-Gate Antigravity Hooks & Read-Only MCP', () => {
       assert.notStrictEqual(res.decision, 'continue', 'Must NEVER return decision: "continue"');
       assert.strictEqual(res.status, undefined, 'Must NOT return {status} (not official contract)');
       assert.strictEqual(handler.state, 'HALTED_BACKGROUND_ACTIVE', 'Internal state updated to HALTED_BACKGROUND_ACTIVE');
+    });
+
+    it('CLI Bridge creates physical checkpoint file on disk when PostInvocation quota <= stopPercent', async () => {
+      const { spawnSync } = require('child_process');
+      const bridgeScript = path.join(__dirname, '../integrations/antigravity-hook/cli-bridge.js');
+      const tmpCheckpoints = fs.mkdtempSync(path.join(os.tmpdir(), 'qg-hook-snap-'));
+
+      const input = JSON.stringify({
+        conversationId: 'real-convo-test',
+        modelName: 'claude-3-5-sonnet',
+        quotaHealth: {
+          buckets: {
+            'claude-weekly': { remainingPercent: 10, remainingFraction: 0.10, category: 'claude' }
+          }
+        }
+      });
+
+      const proc = spawnSync('node', [bridgeScript, 'PostInvocation'], {
+        input,
+        encoding: 'utf8',
+        env: { ...process.env, QUOTA_GUARD_CHECKPOINTS_DIR: tmpCheckpoints }
+      });
+
+      assert.strictEqual(proc.status, 0);
+      const out = JSON.parse(proc.stdout.trim());
+      assert.strictEqual(out.terminationBehavior, 'terminate');
+
+      const files = fs.readdirSync(tmpCheckpoints);
+      const jsonFile = files.find(f => f.endsWith('.json'));
+      const mdFile = files.find(f => f.endsWith('.md'));
+
+      assert.ok(jsonFile, 'Must create real .json checkpoint file on disk');
+      assert.ok(mdFile, 'Must create real .md companion recovery document on disk');
+
+      fs.rmSync(tmpCheckpoints, { recursive: true, force: true });
     });
   });
 

@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 
 let inMemoryClipboard = '';
 
@@ -57,12 +57,34 @@ function copyToClipboard(text) {
     }
 
     if (platform === 'win32') {
-      // Escape for PowerShell command
-      const escaped = text.replace(/"/g, '`"');
-      execSync(`powershell.exe -NoProfile -Command "Set-Clipboard -Value \\"${escaped}\\""`, {
-        stdio: ['ignore', 'ignore', 'ignore'],
-        timeout: 4000
-      });
+      // Safe native clipboard copy via stdin (prevents command injection)
+      try {
+        const proc = spawnSync('clip', [], {
+          input: text,
+          encoding: 'utf8',
+          stdio: ['pipe', 'ignore', 'ignore'],
+          timeout: 4000
+        });
+        if (proc.status === 0) {
+          inMemoryClipboard = text;
+          return true;
+        }
+      } catch (_) {}
+
+      // Safe PowerShell fallback using standard input (no string interpolation)
+      try {
+        const ps = spawnSync('powershell.exe', ['-NoProfile', '-Command', '$Input | Set-Clipboard'], {
+          input: text,
+          encoding: 'utf8',
+          stdio: ['pipe', 'ignore', 'ignore'],
+          timeout: 4000
+        });
+        if (ps.status === 0) {
+          inMemoryClipboard = text;
+          return true;
+        }
+      } catch (_) {}
+
       inMemoryClipboard = text;
       return true;
     }
