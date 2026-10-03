@@ -19,6 +19,7 @@ const {
   validateConfig,
   loadConfig,
   saveConfig,
+  resetConfig,
   CONFIG_FILE
 } = configModule;
 
@@ -148,7 +149,8 @@ describe('R3: Configurable Titlebar HUD Scope', () => {
     });
 
     it('2.6 Backwards compatibility: preserves custom thresholds when injecting default hudScope', () => {
-      // Simulate an older config without hudScope
+      // Simulate an older config without hudScope starting from pristine baseline
+      resetConfig();
       const legacyConfig = {
         language: 'fa',
         thresholds: {

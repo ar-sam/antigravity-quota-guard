@@ -22,6 +22,7 @@ const CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-sa
 const VALID_HUD_SCOPES = ['fiveHour', 'weekly', 'both'];
 
 const DEFAULT_CONFIG = {
+  version: '2.2.0',
   language: 'fa',
   thresholds: { warnPercent: 20, stabilizePercent: 15, checkpointPercent: 13, stopPercent: 12, minResumePercent: 70 },
   visuals: {
@@ -31,8 +32,35 @@ const DEFAULT_CONFIG = {
     colors: { safe: '#10b981', warn: '#d97706', critical: '#e11d48', text: '#f8fafc', background: '#0f172a' }
   },
   audio: { soundEnabled: true, soundName: 'Glass', desktopNotification: true },
+  notifications: { enabled: true, soundEnabled: true, soundName: 'Glass', desktopNotification: true },
   sync: { refreshIntervalMinutes: 3, autoDetectBucket: true, targetBucket: 'auto' },
-  handover: { requireNewAccountOrMinQuota: true, autoOpenSettings: false }
+  snapshot: {
+    enabled: true,
+    includeTranscript: true,
+    transcriptMessageLimit: 5,
+    includeAccountEmail: false,
+    includeArtifactInventory: true,
+    retentionCount: 10
+  },
+  handover: {
+    autoOpenAccountFlow: true,
+    autoDetectAccountChange: true,
+    autoVerifyQuota: true,
+    autoPrepareRecovery: true,
+    resumeMode: 'automatic_when_supported',
+    requireNewAccountOrMinQuota: true,
+    autoOpenSettings: false
+  },
+  expert: {
+    mode: 'standard',
+    godModeLifetime: 'persistent'
+  },
+  quota: {
+    providerMode: 'auto_safe'
+  },
+  diagnostics: {
+    showRawQuotaPayload: false
+  }
 };
 
 function deepMerge(target, source) {
@@ -872,6 +900,30 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       thresholdsTab: 'آستانه‌ها',
       visualsTab: 'رنگ و تم',
       audioTab: 'صدا و اعلان',
+      tabThresholds: '⚙️ آستانه‌ها و سهمیه',
+      tabAppearance: '🎨 ظاهر و اعلان‌ها',
+      tabPrivacy: '🔒 حریم خصوصی و بازیابی',
+      tabAdvanced: '🚀 تنظیمات پیشرفته و حرفه‌ای',
+      checkpointThreshold: 'آستانه ثبت چک‌پوینت خودکار (%):',
+      snapshotEnabled: 'فعال بودن ثبت خودکار چک‌پوینت در زمان توقف',
+      includeTranscript: 'ثبت آخرین پیام‌های مکالمه در سند بازیابی',
+      includeArtifacts: 'ثبت فهرست اسناد فعال در چک‌پوینت',
+      maskAccount: 'پنهان‌سازی آدرس ایمیل جهت حفظ حریم خصوصی',
+      openCheckpointsFolder: '📂 باز کردن پوشه چک‌پوینت‌ها',
+      operatingMode: 'سطح کاربری سیستم (Operating Mode):',
+      modeStandard: 'استاندارد (Standard) — محافظت پایه',
+      modeAdvanced: 'پیشرفته (Advanced) — لاگ‌ها و تلمتری دقیق',
+      modeGod: 'حالت خدا (God Mode) — اتوماسیون کامل و دسترسی آزاد',
+      handoverMode: 'روش فرآیند تعویض حساب:',
+      modeAuto: 'خودکار در صورت پشتیبانی',
+      modeOneClick: 'تأیید با یک کلیک (توصیه‌شده)',
+      modeManual: 'دستی کامل',
+      handoverAutoOpen: 'باز کردن خودکار بخش تنظیمات حساب در زمان توقف',
+      handoverAutoDetect: 'تشخیص خودکار تغییر حساب و سهمیه جدید',
+      quotaProvider: 'منبع دریافت تلمتری سهمیه:',
+      providerAutoSafe: 'هماهنگ‌کننده ترکیبی (Auto-Safe)',
+      providerCliStatusline: 'فقط خط فرمان (CLI Statusline)',
+      diagnosticsRaw: 'نمایش تلمتری خام در لاگ کنسول',
       warnThreshold: 'آستانه هشدار (Warn %):',
       stabilizeThreshold: 'آستانه تثبیت (Stabilize %):',
       stopThreshold: 'آستانه توقف تعویض حساب (Stop %):',
@@ -937,6 +989,30 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       thresholdsTab: 'Thresholds',
       visualsTab: 'Themes & Colors',
       audioTab: 'Audio & Alerts',
+      tabThresholds: '⚙️ Thresholds & Quota',
+      tabAppearance: '🎨 Appearance & Alerts',
+      tabPrivacy: '🔒 Privacy & Snapshot',
+      tabAdvanced: '🚀 Advanced & Expert',
+      checkpointThreshold: 'Silent Checkpoint Threshold (%):',
+      snapshotEnabled: 'Enable automatic checkpoints on stop',
+      includeTranscript: 'Include recent dialogue in recovery document',
+      includeArtifacts: 'Include active workspace artifacts',
+      maskAccount: 'Mask account email for privacy',
+      openCheckpointsFolder: '📂 Open Checkpoints Directory',
+      operatingMode: 'System Operating Mode:',
+      modeStandard: 'Standard — Baseline safety protection',
+      modeAdvanced: 'Advanced — Detailed telemetry & logs',
+      modeGod: 'God Mode — Full UI automation capabilities',
+      handoverMode: 'Account Handover Strategy:',
+      modeAuto: 'Automatic when supported',
+      modeOneClick: 'One-Click reviewed (Recommended)',
+      modeManual: 'Full manual',
+      handoverAutoOpen: 'Auto-open account flow on stop',
+      handoverAutoDetect: 'Auto-detect account change & quota',
+      quotaProvider: 'Quota Telemetry Provider:',
+      providerAutoSafe: 'Hybrid Coordinator (Auto-Safe)',
+      providerCliStatusline: 'CLI Statusline Only',
+      diagnosticsRaw: 'Show raw telemetry in console logs',
       warnThreshold: 'Warning Threshold (%):',
       stabilizeThreshold: 'Stabilize Threshold (%):',
       stopThreshold: 'Account Switch Stop Threshold (%):',
@@ -1360,7 +1436,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       justify-content: center;
     }
     .qg-modal {
-      width: 480px;
+      width: 560px;
       max-width: 92vw;
       max-height: 88vh;
       overflow-y: auto;
@@ -1375,6 +1451,61 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     .qg-modal[dir="rtl"] {
       direction: rtl;
       text-align: right;
+    }
+    .qg-settings-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      overflow-x: auto;
+    }
+    .qg-settings-tab {
+      padding: 6px 11px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .qg-settings-tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .qg-settings-tab.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .qg-tab-panel {
+      display: none;
+    }
+    .qg-tab-panel.active {
+      display: block;
+    }
+    .qg-select-control {
+      width: 100%;
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      outline: none;
+    }
+    .qg-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      user-select: none;
     }
     .qg-field { margin-bottom: 14px; }
     .qg-field label { display: block; font-size: 12px; margin-bottom: 5px; opacity: 0.9; }
@@ -2096,7 +2227,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     });
   }
 
-  // Settings Modal Dialog
+  // Settings Modal Dialog (4-Tab Schema-Driven)
   function openSettingsModal() {
     minimizeHandoverPanel();
     const existing = document.getElementById('qg-settings-modal');
@@ -2109,88 +2240,235 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     const cfgCopy = JSON.parse(JSON.stringify(config));
     if (!cfgCopy.visuals) cfgCopy.visuals = {};
     if (!cfgCopy.visuals.hudScope) cfgCopy.visuals.hudScope = 'fiveHour';
+    if (!cfgCopy.thresholds) cfgCopy.thresholds = {};
+    if (!cfgCopy.audio) cfgCopy.audio = {};
+    if (!cfgCopy.notifications) cfgCopy.notifications = {};
+    if (!cfgCopy.snapshot) cfgCopy.snapshot = {};
+    if (!cfgCopy.handover) cfgCopy.handover = {};
+    if (!cfgCopy.expert) cfgCopy.expert = {};
+    if (!cfgCopy.quota) cfgCopy.quota = {};
+    if (!cfgCopy.diagnostics) cfgCopy.diagnostics = {};
 
     const isFa = cfgCopy.language === 'fa';
 
     backdrop.innerHTML = \`
       <div class="qg-modal" dir="\${isFa ? 'rtl' : 'ltr'}">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h3 style="margin:0; font-size:15px;">⚙️ \${t('settingsTitle')}</h3>
+          <h3 style="margin:0; font-size:15px; font-weight:700;">⚙️ \${t('settingsTitle')}</h3>
           <button class="qg-btn" id="qg-lang-toggle" style="flex:none; padding:3px 8px;">\${t('langToggle')}</button>
         </div>
 
-        <!-- R4: Dedicated User Guide Button -->
-        <button class="qg-btn-guide" id="qg-btn-open-guide">
-          <span>\${t('guideButton')}</span>
-          <span class="qg-btn-guide-sub">\${t('guideButtonSub')}</span>
-        </button>
+        <!-- 4-Tab Navigation Header -->
+        <div class="qg-settings-tabs">
+          <button class="qg-settings-tab active" data-tab="0">\${t('tabThresholds')}</button>
+          <button class="qg-settings-tab" data-tab="1">\${t('tabAppearance')}</button>
+          <button class="qg-settings-tab" data-tab="2">\${t('tabPrivacy')}</button>
+          <button class="qg-settings-tab" data-tab="3">\${t('tabAdvanced')}</button>
+        </div>
 
-        <!-- R3: Titlebar HUD Scope Segmented Control -->
-        <div class="qg-field">
-          <label>\${t('hudScopeLabel')}</label>
-          <div class="qg-segmented-row" id="qg-scope-selector">
-            <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'fiveHour' ? 'active' : ''}" data-scope="fiveHour">
-              \${t('scopeFiveHour')}
+        <!-- Tab 0: Thresholds & Quota -->
+        <div class="qg-tab-panel active" data-panel="0">
+          <div class="qg-card-callout" style="margin-bottom:12px; font-size:11px; opacity:0.85;">
+            ℹ️ \${isFa
+              ? 'ترتیب الزامی آستانه‌ها: هشدار > تثبیت > ثبت چک‌پوینت > توقف تعویض حساب. حداقل سهمیه برای بازیابی باید بالاتر از آستانه توقف باشد.'
+              : 'Required threshold order: Warn > Stabilize > Checkpoint > Stop. Resume threshold must be strictly above Stop.'}
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('warnThreshold')}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-warn" min="5" max="50" value="\${cfgCopy.thresholds.warnPercent ?? 20}">
+              <span class="qg-val" id="qg-val-warn">\${cfgCopy.thresholds.warnPercent ?? 20}%</span>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('stabilizeThreshold')}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-stabilize" min="5" max="35" value="\${cfgCopy.thresholds.stabilizePercent ?? 15}">
+              <span class="qg-val" id="qg-val-stabilize">\${cfgCopy.thresholds.stabilizePercent ?? 15}%</span>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('checkpointThreshold')}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-checkpoint" min="5" max="25" value="\${cfgCopy.thresholds.checkpointPercent ?? 13}">
+              <span class="qg-val" id="qg-val-checkpoint">\${cfgCopy.thresholds.checkpointPercent ?? 13}%</span>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('stopThreshold')}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-stop" min="5" max="25" value="\${cfgCopy.thresholds.stopPercent ?? 12}">
+              <span class="qg-val" id="qg-val-stop">\${cfgCopy.thresholds.stopPercent ?? 12}%</span>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('resumeThreshold')}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-resume" min="40" max="95" value="\${cfgCopy.thresholds.minResumePercent ?? 70}">
+              <span class="qg-val" id="qg-val-resume">\${cfgCopy.thresholds.minResumePercent ?? 70}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 1: Appearance & Alerts -->
+        <div class="qg-tab-panel" data-panel="1">
+          <!-- R4: Dedicated User Guide Button -->
+          <button class="qg-btn-guide" id="qg-btn-open-guide">
+            <span>\${t('guideButton')}</span>
+            <span class="qg-btn-guide-sub">\${t('guideButtonSub')}</span>
+          </button>
+
+          <!-- R3: Titlebar HUD Scope Segmented Control -->
+          <div class="qg-field">
+            <label>\${t('hudScopeLabel')}</label>
+            <div class="qg-segmented-row" id="qg-scope-selector">
+              <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'fiveHour' ? 'active' : ''}" data-scope="fiveHour">
+                \${t('scopeFiveHour')}
+              </button>
+              <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'weekly' ? 'active' : ''}" data-scope="weekly">
+                \${t('scopeWeekly')}
+              </button>
+              <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'both' ? 'active' : ''}" data-scope="both">
+                \${t('scopeBoth')}
+              </button>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('themePreset')}</label>
+            <div style="display:flex; gap:6px;">
+              <button class="qg-btn" id="qg-theme-clinical">Clinical</button>
+              <button class="qg-btn" id="qg-theme-standard">Standard</button>
+              <button class="qg-btn" id="qg-theme-vibrant">Vibrant</button>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-sound" \${cfgCopy.audio.soundEnabled ? 'checked' : ''}>
+              \${t('soundToggle')}
+            </label>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <select id="qg-set-sound-name" class="qg-select-control" style="width:auto;">
+                <option value="Glass" \${cfgCopy.audio.soundName === 'Glass' ? 'selected' : ''}>Glass</option>
+                <option value="Ping" \${cfgCopy.audio.soundName === 'Ping' ? 'selected' : ''}>Ping</option>
+                <option value="Pop" \${cfgCopy.audio.soundName === 'Pop' ? 'selected' : ''}>Pop</option>
+                <option value="Submarine" \${cfgCopy.audio.soundName === 'Submarine' ? 'selected' : ''}>Submarine</option>
+              </select>
+              <button class="qg-btn" id="qg-test-sound">▶ \${t('testSound')}</button>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-notify" \${cfgCopy.audio.desktopNotification ? 'checked' : ''}>
+              \${t('notifyToggle')}
+            </label>
+          </div>
+        </div>
+
+        <!-- Tab 2: Privacy & Checkpoints -->
+        <div class="qg-tab-panel" data-panel="2">
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-snapshot-enabled" \${cfgCopy.snapshot.enabled !== false ? 'checked' : ''}>
+              \${t('snapshotEnabled')}
+            </label>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-include-transcript" \${cfgCopy.snapshot.includeTranscript !== false ? 'checked' : ''}>
+              \${t('includeTranscript')}
+            </label>
+          </div>
+
+          <div class="qg-field" style="padding-inline-start: 22px;">
+            <label style="font-size:11px; opacity:0.8;">\${isFa ? 'تعداد پیام‌های ضبط‌شده در سند بازیابی:' : 'Recent messages in recovery doc:'}</label>
+            <div class="qg-slider-row">
+              <input type="range" class="qg-slider" id="qg-set-transcript-limit" min="1" max="10" value="\${cfgCopy.snapshot.transcriptMessageLimit ?? 5}">
+              <span class="qg-val" id="qg-val-transcript-limit">\${cfgCopy.snapshot.transcriptMessageLimit ?? 5}</span>
+            </div>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-include-artifacts" \${cfgCopy.snapshot.includeArtifactInventory !== false ? 'checked' : ''}>
+              \${t('includeArtifacts')}
+            </label>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-mask-account" \${cfgCopy.snapshot.includeAccountEmail === false ? 'checked' : ''}>
+              \${t('maskAccount')}
+            </label>
+          </div>
+
+          <div style="margin-top:14px;">
+            <button class="qg-btn" id="qg-btn-open-checkpoints" style="width:100%; justify-content:center; padding:8px;">
+              \${t('openCheckpointsFolder')}
             </button>
-            <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'weekly' ? 'active' : ''}" data-scope="weekly">
-              \${t('scopeWeekly')}
-            </button>
-            <button class="qg-segmented-btn \${cfgCopy.visuals.hudScope === 'both' ? 'active' : ''}" data-scope="both">
-              \${t('scopeBoth')}
-            </button>
           </div>
         </div>
 
-        <div class="qg-field">
-          <label>\${t('warnThreshold')}</label>
-          <div class="qg-slider-row">
-            <input type="range" class="qg-slider" id="qg-set-warn" min="5" max="50" value="\${cfgCopy.thresholds.warnPercent}">
-            <span class="qg-val" id="qg-val-warn">\${cfgCopy.thresholds.warnPercent}%</span>
-          </div>
-        </div>
-
-        <div class="qg-field">
-          <label>\${t('stopThreshold')}</label>
-          <div class="qg-slider-row">
-            <input type="range" class="qg-slider" id="qg-set-stop" min="5" max="25" value="\${cfgCopy.thresholds.stopPercent}">
-            <span class="qg-val" id="qg-val-stop">\${cfgCopy.thresholds.stopPercent}%</span>
-          </div>
-        </div>
-
-        <div class="qg-field">
-          <label>\${t('resumeThreshold')}</label>
-          <div class="qg-slider-row">
-            <input type="range" class="qg-slider" id="qg-set-resume" min="40" max="95" value="\${cfgCopy.thresholds.minResumePercent}">
-            <span class="qg-val" id="qg-val-resume">\${cfgCopy.thresholds.minResumePercent}%</span>
-          </div>
-        </div>
-
-        <div class="qg-field">
-          <label>\${t('themePreset')}</label>
-          <div style="display:flex; gap:6px;">
-            <button class="qg-btn" id="qg-theme-clinical">Clinical</button>
-            <button class="qg-btn" id="qg-theme-standard">Standard</button>
-            <button class="qg-btn" id="qg-theme-vibrant">Vibrant</button>
-          </div>
-        </div>
-
-        <div class="qg-field">
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="checkbox" id="qg-set-sound" \${cfgCopy.audio.soundEnabled ? 'checked' : ''}>
-            \${t('soundToggle')}
-          </label>
-          <div style="display:flex; gap:6px; margin-top:6px;">
-            <select id="qg-set-sound-name" style="background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:4px;">
-              <option value="Glass" \${cfgCopy.audio.soundName === 'Glass' ? 'selected' : ''}>Glass</option>
-              <option value="Ping" \${cfgCopy.audio.soundName === 'Ping' ? 'selected' : ''}>Ping</option>
-              <option value="Pop" \${cfgCopy.audio.soundName === 'Pop' ? 'selected' : ''}>Pop</option>
-              <option value="Submarine" \${cfgCopy.audio.soundName === 'Submarine' ? 'selected' : ''}>Submarine</option>
+        <!-- Tab 3: Advanced & Expert -->
+        <div class="qg-tab-panel" data-panel="3">
+          <div class="qg-field">
+            <label>\${t('operatingMode')}</label>
+            <select id="qg-set-expert-mode" class="qg-select-control">
+              <option value="standard" \${(!cfgCopy.expert || cfgCopy.expert.mode === 'standard') ? 'selected' : ''}>\${t('modeStandard')}</option>
+              <option value="advanced" \${(cfgCopy.expert && cfgCopy.expert.mode === 'advanced') ? 'selected' : ''}>\${t('modeAdvanced')}</option>
+              <option value="god" \${(cfgCopy.expert && cfgCopy.expert.mode === 'god') ? 'selected' : ''}>\${t('modeGod')}</option>
             </select>
-            <button class="qg-btn" id="qg-test-sound">▶ \${t('testSound')}</button>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('handoverMode')}</label>
+            <select id="qg-set-handover-mode" class="qg-select-control">
+              <option value="automatic_when_supported" \${(!cfgCopy.handover || cfgCopy.handover.resumeMode === 'automatic_when_supported') ? 'selected' : ''}>\${t('modeAuto')}</option>
+              <option value="one_click" \${(cfgCopy.handover && cfgCopy.handover.resumeMode === 'one_click') ? 'selected' : ''}>\${t('modeOneClick')}</option>
+              <option value="manual" \${(cfgCopy.handover && cfgCopy.handover.resumeMode === 'manual') ? 'selected' : ''}>\${t('modeManual')}</option>
+            </select>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-auto-open-account" \${(!cfgCopy.handover || cfgCopy.handover.autoOpenAccountFlow !== false) ? 'checked' : ''}>
+              \${t('handoverAutoOpen')}
+            </label>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-auto-detect-account" \${(!cfgCopy.handover || cfgCopy.handover.autoDetectAccountChange !== false) ? 'checked' : ''}>
+              \${t('handoverAutoDetect')}
+            </label>
+          </div>
+
+          <div class="qg-field">
+            <label>\${t('quotaProvider')}</label>
+            <select id="qg-set-provider-mode" class="qg-select-control">
+              <option value="auto_safe" \${(!cfgCopy.quota || cfgCopy.quota.providerMode === 'auto_safe') ? 'selected' : ''}>\${t('providerAutoSafe')}</option>
+              <option value="cli_statusline" \${(cfgCopy.quota && cfgCopy.quota.providerMode === 'cli_statusline') ? 'selected' : ''}>\${t('providerCliStatusline')}</option>
+            </select>
+          </div>
+
+          <div class="qg-field">
+            <label class="qg-checkbox-row">
+              <input type="checkbox" id="qg-set-raw-telemetry" \${(cfgCopy.diagnostics && cfgCopy.diagnostics.showRawQuotaPayload) ? 'checked' : ''}>
+              \${t('diagnosticsRaw')}
+            </label>
           </div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; margin-top:16px;">
+        <!-- Modal Footer -->
+        <div style="display:flex; justify-content:space-between; margin-top:18px; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">
           <button class="qg-btn" id="qg-modal-reset" style="background:rgba(239,68,68,0.2); color:#fca5a5;">\${t('reset')}</button>
           <div style="display:flex; gap:8px;">
             <button class="qg-btn" id="qg-modal-cancel">\${t('cancel')}</button>
@@ -2201,6 +2479,19 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     \`;
 
     document.body.appendChild(backdrop);
+
+    // Tab switching handler
+    const settingsTabs = backdrop.querySelectorAll('.qg-settings-tab');
+    const settingsPanels = backdrop.querySelectorAll('.qg-tab-panel');
+    settingsTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabIdx = tab.getAttribute('data-tab');
+        settingsTabs.forEach(t => t.classList.remove('active'));
+        settingsPanels.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        backdrop.querySelector(\`.qg-tab-panel[data-panel="\${tabIdx}"]\`)?.classList.add('active');
+      });
+    });
 
     // Guide button handler
     document.getElementById('qg-btn-open-guide')?.addEventListener('click', () => {
@@ -2227,8 +2518,18 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       });
     };
     bindSlider('qg-set-warn', 'qg-val-warn', 'warnPercent');
+    bindSlider('qg-set-stabilize', 'qg-val-stabilize', 'stabilizePercent');
+    bindSlider('qg-set-checkpoint', 'qg-val-checkpoint', 'checkpointPercent');
     bindSlider('qg-set-stop', 'qg-val-stop', 'stopPercent');
     bindSlider('qg-set-resume', 'qg-val-resume', 'minResumePercent');
+
+    const sLimit = document.getElementById('qg-set-transcript-limit');
+    const vLimit = document.getElementById('qg-val-transcript-limit');
+    sLimit?.addEventListener('input', () => {
+      vLimit.textContent = sLimit.value;
+      if (!cfgCopy.snapshot) cfgCopy.snapshot = {};
+      cfgCopy.snapshot.transcriptMessageLimit = parseInt(sLimit.value, 10);
+    });
 
     // Language toggle
     document.getElementById('qg-lang-toggle')?.addEventListener('click', () => {
@@ -2245,6 +2546,29 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
       console.log('__QUOTA_GUARD_ACTION__:PLAY_CHIME:' + soundName);
     });
 
+    // Open Checkpoints Folder
+    document.getElementById('qg-btn-open-checkpoints')?.addEventListener('click', () => {
+      console.log('__QUOTA_GUARD_ACTION__:OPEN_CHECKPOINTS_DIR');
+    });
+
+    // God Mode Confirmation Warning
+    const expertSelect = document.getElementById('qg-set-expert-mode');
+    let previousExpertVal = expertSelect?.value || 'standard';
+    expertSelect?.addEventListener('change', () => {
+      if (expertSelect.value === 'god') {
+        const confirmMsg = isFa
+          ? 'هشدار امنیتی: فعال‌سازی «حالت خدا» (God Mode) کنترل پیشرفته و اتوماسیون کامل رابط را امکان‌پذیر می‌سازد. آیا از فعال‌سازی این حالت اطمینان دارید؟'
+          : 'Security Warning: Enabling "God Mode" allows full UI automation and unrestricted capabilities. Are you sure you want to enable this mode?';
+        if (!window.confirm(confirmMsg)) {
+          expertSelect.value = previousExpertVal;
+          return;
+        }
+      }
+      previousExpertVal = expertSelect.value;
+      if (!cfgCopy.expert) cfgCopy.expert = {};
+      cfgCopy.expert.mode = expertSelect.value;
+    });
+
     // Preset buttons
     const applyPreset = (presetName, colors) => {
       cfgCopy.visuals.themePreset = presetName;
@@ -2256,8 +2580,18 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
 
     // Reset button
     document.getElementById('qg-modal-reset')?.addEventListener('click', () => {
-      console.log('__QUOTA_GUARD_ACTION__:RESET_CONFIG');
-      backdrop.remove();
+      const confirmMsg = isFa
+        ? 'آیا از بازگردانی تمامی تنظیمات به حالت اولیه کارخانه اطمینان دارید؟'
+        : 'Are you sure you want to reset all settings to factory defaults?';
+      if (window.confirm(confirmMsg)) {
+        console.log('__QUOTA_GUARD_ACTION__:RESET_CONFIG');
+        config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        backdrop.remove();
+        updateHUD();
+        if (popover && popover.classList.contains('open')) {
+          renderPopoverContent();
+        }
+      }
     });
 
     // Cancel button
@@ -2265,8 +2599,40 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
 
     // Save button
     document.getElementById('qg-modal-save')?.addEventListener('click', () => {
-      cfgCopy.audio.soundEnabled = document.getElementById('qg-set-sound').checked;
-      cfgCopy.audio.soundName = document.getElementById('qg-set-sound-name').value;
+      const soundChecked = document.getElementById('qg-set-sound')?.checked ?? true;
+      const soundNameVal = document.getElementById('qg-set-sound-name')?.value || 'Glass';
+      const notifyChecked = document.getElementById('qg-set-notify')?.checked ?? true;
+
+      cfgCopy.audio.soundEnabled = soundChecked;
+      cfgCopy.audio.soundName = soundNameVal;
+      cfgCopy.audio.desktopNotification = notifyChecked;
+
+      if (!cfgCopy.notifications) cfgCopy.notifications = {};
+      cfgCopy.notifications.soundEnabled = soundChecked;
+      cfgCopy.notifications.soundName = soundNameVal;
+      cfgCopy.notifications.desktopNotification = notifyChecked;
+      cfgCopy.notifications.enabled = notifyChecked || soundChecked;
+
+      if (!cfgCopy.snapshot) cfgCopy.snapshot = {};
+      cfgCopy.snapshot.enabled = document.getElementById('qg-set-snapshot-enabled')?.checked ?? true;
+      cfgCopy.snapshot.includeTranscript = document.getElementById('qg-set-include-transcript')?.checked ?? true;
+      cfgCopy.snapshot.includeArtifactInventory = document.getElementById('qg-set-include-artifacts')?.checked ?? true;
+      cfgCopy.snapshot.includeAccountEmail = !(document.getElementById('qg-set-mask-account')?.checked ?? true);
+
+      if (!cfgCopy.expert) cfgCopy.expert = {};
+      cfgCopy.expert.mode = document.getElementById('qg-set-expert-mode')?.value || 'standard';
+
+      if (!cfgCopy.handover) cfgCopy.handover = {};
+      cfgCopy.handover.resumeMode = document.getElementById('qg-set-handover-mode')?.value || 'automatic_when_supported';
+      cfgCopy.handover.autoOpenAccountFlow = document.getElementById('qg-set-auto-open-account')?.checked ?? true;
+      cfgCopy.handover.autoDetectAccountChange = document.getElementById('qg-set-auto-detect-account')?.checked ?? true;
+
+      if (!cfgCopy.quota) cfgCopy.quota = {};
+      cfgCopy.quota.providerMode = document.getElementById('qg-set-provider-mode')?.value || 'auto_safe';
+
+      if (!cfgCopy.diagnostics) cfgCopy.diagnostics = {};
+      cfgCopy.diagnostics.showRawQuotaPayload = document.getElementById('qg-set-raw-telemetry')?.checked ?? false;
+
       config = cfgCopy;
       console.log('__QUOTA_GUARD_ACTION__:SAVE_CONFIG:' + JSON.stringify(config));
       backdrop.remove();
@@ -2277,7 +2643,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
     });
   }
 
-  function minimizeHandoverPanel() {
+    function minimizeHandoverPanel() {
     const panel = document.getElementById('qg-handover-panel');
     if (panel) {
       isHandoverPanelMinimized = true;
@@ -2710,6 +3076,14 @@ function initMainProcessHooks() {
             win.webContents.executeJavaScript(`window.__QUOTA_GUARD_UPDATE__ && window.__QUOTA_GUARD_UPDATE__(${JSON.stringify(data)});`).catch(() => {});
           }
         });
+      } else if (action === 'RESET_CONFIG') {
+        try {
+          if (fs.existsSync(CONFIG_PATH)) {
+            const backupPath = path.join(CONFIG_DIR, `config.backup.pre-reset.${Date.now()}.json`);
+            fs.copyFileSync(CONFIG_PATH, backupPath);
+          }
+          saveConfigSafe(DEFAULT_CONFIG);
+        } catch (_) {}
       } else if (action.startsWith('SAVE_CONFIG:')) {
         const payload = action.replace('SAVE_CONFIG:', '');
         try {
