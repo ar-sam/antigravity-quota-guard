@@ -36,7 +36,7 @@ const { PreflightChecker } = require('../installer/preflight-checker');
 const { BackupManager } = require('../installer/backup-manager');
 const { QuotaGuardDoctor } = require('../tools/doctor');
 
-const DEFAULT_CHECKPOINTS_DIR = SNAPSHOT_CHECKPOINTS_DIR || path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+const DEFAULT_CHECKPOINTS_DIR = SNAPSHOT_CHECKPOINTS_DIR || path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'checkpoints');
 
 // Locate Antigravity app.asar across operating systems
 function getAsarPath() {
@@ -217,7 +217,7 @@ async function uninstallPatch() {
   }
 
   console.log(pc.cyan('\n🛡️  Work & Safety Notice:'));
-  console.log(pc.green('✔  Your conversation checkpoints in ~/.gemini/antigravity-quota-safety/checkpoints/ remain 100% PRESERVED.'));
+  console.log(pc.green('✔  Your conversation checkpoints in ~/.gemini/antigravity-quota-guard/checkpoints/ remain 100% PRESERVED.'));
   console.log(pc.green(`✔  Your preferences in ${CONFIG_FILE} remain PRESERVED.\n`));
 }
 

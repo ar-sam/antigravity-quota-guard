@@ -21,7 +21,28 @@ const cp = require('child_process');
 const DEFAULT_ANTIGRAVITY_DIR = path.join(os.homedir(), '.gemini', 'antigravity');
 const DEFAULT_DB_PATH = path.join(DEFAULT_ANTIGRAVITY_DIR, 'conversation_summaries.db');
 const DEFAULT_BRAIN_DIR = path.join(DEFAULT_ANTIGRAVITY_DIR, 'brain');
-const DEFAULT_CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+const LEGACY_CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+const DEFAULT_CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'checkpoints');
+
+/**
+ * Migrates legacy checkpoints if target directory is newly used.
+ */
+function migrateLegacyCheckpoints(targetDir) {
+  try {
+    if (fs.existsSync(LEGACY_CHECKPOINTS_DIR) && fs.existsSync(targetDir) && LEGACY_CHECKPOINTS_DIR !== targetDir) {
+      const files = fs.readdirSync(LEGACY_CHECKPOINTS_DIR);
+      for (const file of files) {
+        if (file.endsWith('.json') || file.endsWith('.md')) {
+          const src = path.join(LEGACY_CHECKPOINTS_DIR, file);
+          const dest = path.join(targetDir, file);
+          if (!fs.existsSync(dest)) {
+            try { fs.copyFileSync(src, dest); } catch (_) {}
+          }
+        }
+      }
+    }
+  } catch (_) {}
+}
 
 const CHECKPOINTS_DIR = DEFAULT_CHECKPOINTS_DIR;
 const MAX_CHECKPOINTS = 10;
@@ -955,6 +976,7 @@ async function createSnapshot(options = {}, maybeOnProgress = null, maybeOptions
     if (!fs.existsSync(checkpointsDir)) {
       fs.mkdirSync(checkpointsDir, { recursive: true });
     }
+    migrateLegacyCheckpoints(checkpointsDir);
 
     const timestamp = new Date().toISOString();
     const tsFileSafe = timestamp.replace(/[:.]/g, '-');

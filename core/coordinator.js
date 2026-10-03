@@ -16,6 +16,16 @@ const { calculateEffectiveQuota } = require('./quota-policy.js');
 const { GuardStateMachine, GUARD_STATES } = require('./guard-state-machine.js');
 const { DEFAULT_CONFIG } = require('./config-defaults.js');
 
+let EventJournal = null;
+try {
+  EventJournal = require('./event-journal.js').EventJournal;
+} catch (_) {}
+
+let ConfigStore = null;
+try {
+  ConfigStore = require('./config-store.js').ConfigStore;
+} catch (_) {}
+
 function getBaseDir() {
   if (process.env.QUOTA_GUARD_HOME) {
     return process.env.QUOTA_GUARD_HOME;
@@ -81,11 +91,38 @@ class GlobalCoordinator {
     this.runtimeStatePath = options.runtimeStatePath || getDerivedRuntimeStatePath();
     this.isSidecar = options.isSidecar || false;
 
+    this.configStore = options.configStore !== undefined
+      ? options.configStore
+      : (ConfigStore ? new ConfigStore({ baseDir: getBaseDir() }) : null);
+
+    let initialThresholds = options.thresholds;
+    if (!initialThresholds && this.configStore) {
+      try {
+        const loaded = this.configStore.loadConfig();
+        if (loaded && loaded.thresholds) {
+          initialThresholds = loaded.thresholds;
+        }
+      } catch (_) {}
+    }
+    if (!initialThresholds) {
+      initialThresholds = DEFAULT_CONFIG.thresholds;
+    }
+
+    const defaultJournalPath = options.runDir
+      ? path.join(options.runDir, 'event-journal.jsonl')
+      : path.join(getBaseDir(), 'event-journal.jsonl');
+
+    this.journal = options.journal !== undefined
+      ? options.journal
+      : (EventJournal ? new EventJournal({
+          journalPath: options.journalPath || defaultJournalPath
+        }) : null);
+
     // Authoritative State
     this.revision = 1;
     this.quotaHealth = createInitialQuotaHealth();
     this.guard = new GuardStateMachine({
-      thresholds: options.thresholds || DEFAULT_CONFIG.thresholds,
+      thresholds: initialThresholds,
       onSilentCheckpoint: options.onSilentCheckpoint || null
     });
     this.sessions = new Map(); // conversationId -> { surfaceInstanceId, accountIdentity, model, lastSeen }
@@ -94,6 +131,24 @@ class GlobalCoordinator {
     this.subscribers = new Set();
     this.server = null;
     this.isClosing = false;
+  }
+
+  /**
+   * Reloads dynamic configuration from ConfigStore.
+   */
+  reloadConfig() {
+    if (!this.configStore) return null;
+    try {
+      const cfg = this.configStore.loadConfig();
+      if (cfg && cfg.thresholds && this.guard) {
+        this.guard.thresholds = cfg.thresholds;
+        this.writeDerivedRuntimeState();
+        this.broadcastState();
+      }
+      return cfg;
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -295,6 +350,18 @@ class GlobalCoordinator {
 
         this.writeDerivedRuntimeState();
         this.broadcastState();
+
+        if (this.journal) {
+          try {
+            this.journal.appendEvent('QUOTA_OBSERVED', {
+              state: this.quotaHealth.state,
+              source: this.quotaHealth.source,
+              failureKind: this.quotaHealth.failureKind,
+              effectiveQuota: eff
+            });
+          } catch (_) {}
+        }
+
         response.revision = this.revision;
         response.data = {
           ...this.quotaHealth,
@@ -311,6 +378,17 @@ class GlobalCoordinator {
         this.revision++;
         this.writeDerivedRuntimeState();
         this.broadcastState();
+
+        if (this.journal) {
+          try {
+            this.journal.appendEvent('GUARD_STATE_CHANGED', {
+              state: 'HALTED',
+              revision: this.revision,
+              reason: payload?.reason || 'STOP_THRESHOLD_REACHED'
+            });
+          } catch (_) {}
+        }
+
         response.revision = this.revision;
         response.data = { guardState: this.getGuardState() };
         break;
@@ -323,6 +401,16 @@ class GlobalCoordinator {
         this.revision++;
         this.writeDerivedRuntimeState();
         this.broadcastState();
+
+        if (this.journal) {
+          try {
+            this.journal.appendEvent('GUARD_STATE_CHANGED', {
+              state: 'HALTED_BACKGROUND_ACTIVE',
+              revision: this.revision
+            });
+          } catch (_) {}
+        }
+
         response.revision = this.revision;
         response.data = { guardState: this.getGuardState() };
         break;
@@ -340,6 +428,17 @@ class GlobalCoordinator {
             this.revision++;
             this.writeDerivedRuntimeState();
             this.broadcastState();
+
+            if (this.journal) {
+              try {
+                this.journal.appendEvent('GUARD_STATE_CHANGED', {
+                  state: 'SAFE',
+                  revision: this.revision,
+                  reason: 'RESUME_ALLOWED'
+                });
+              } catch (_) {}
+            }
+
             response.data = { resumed: true, guardState: this.getGuardState() };
           } else {
             response.data = { resumed: false, reason: res.reason, guardState: this.getGuardState() };
@@ -425,6 +524,15 @@ class GlobalCoordinator {
           this.revision++;
           response.revision = this.revision;
         }
+        break;
+      }
+
+      case 'RELOAD_CONFIG': {
+        const cfg = this.reloadConfig();
+        response.data = {
+          config: cfg,
+          thresholds: this.guard ? this.guard.thresholds : null
+        };
         break;
       }
 

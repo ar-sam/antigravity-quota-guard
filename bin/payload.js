@@ -17,8 +17,8 @@ const { execFile, exec } = require('child_process');
 const CONFIG_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const CONFIG_LKG_FILE = path.join(CONFIG_DIR, 'config.lkg.json');
-const RUNTIME_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'runtime');
-const CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+const RUNTIME_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'runtime');
+const CHECKPOINTS_DIR = path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'checkpoints');
 
 const VALID_HUD_SCOPES = ['fiveHour', 'weekly', 'both'];
 
@@ -2102,7 +2102,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
             <h4>مراحل ۵ گانه تعویض حساب با حفظ ۱۰۰٪ کانتکست (Zero Context Loss):</h4>
             <ol>
               <li><strong>توقف خودکار و زنگ هشدار:</strong> به محض رسیدن سهمیه مدل فعال به ۱۲٪، اعلان صوتی پخش شده و پنجره Handover کار را متوقف می‌سازد.</li>
-              <li><strong>ذخیره خودکار چک‌پوینت:</strong> آخرین وضعیت پایدار پروژه و تاریخچه چت در <code>~/.gemini/antigravity-quota-safety/checkpoints/</code> ذخیره می‌گردد.</li>
+              <li><strong>ذخیره خودکار چک‌پوینت:</strong> آخرین وضعیت پایدار پروژه و تاریخچه چت در <code>~/.gemini/antigravity-quota-guard/checkpoints/</code> ذخیره می‌گردد.</li>
               <li><strong>باز کردن تنظیمات حساب:</strong> با کلیک روی "باز کردن تنظیمات حساب" (یا میانبر <code>Cmd+,</code> در مک / <code>Ctrl+,</code>)، پنجره اکانت‌ها را باز کنید.</li>
               <li><strong>سوئیچ به حساب گوگل رزرو:</strong> در بخش Accounts، حساب گوگل دیگر خود را انتخاب یا وارد نمایید.</li>
               <li><strong>بررسی سلامت و ادامه کار:</strong> روی "بررسی سلامت حساب و ادامه کار" کلیک کنید. با تایید سهمیه بالای ۷۰٪، مکالمه بدون نیاز به شروع چت جدید از سر گرفته می‌شود.</li>
@@ -2114,7 +2114,7 @@ function getRendererInjectionCode(initialConfig, initialQuota) {
             <h4>5-Step Account Handover Protocol (Zero Context Loss):</h4>
             <ol>
               <li><strong>Safety Pause & Chime:</strong> When active model quota reaches 12%, an alert sounds and the Handover Modal locks execution safely.</li>
-              <li><strong>Automated Checkpointing:</strong> Session snapshot is persisted to <code>~/.gemini/antigravity-quota-safety/checkpoints/</code>.</li>
+              <li><strong>Automated Checkpointing:</strong> Session snapshot is persisted to <code>~/.gemini/antigravity-quota-guard/checkpoints/</code>.</li>
               <li><strong>Open Account Settings:</strong> Click "Open Antigravity Account Settings" or press <code>Cmd+,</code> (macOS) / <code>Ctrl+,</code> (Linux/Windows).</li>
               <li><strong>Switch to Alternate Account:</strong> Select or log in with your backup Google account.</li>
               <li><strong>Verify & Resume:</strong> Click "Verify & Resume Execution". Upon confirming healthy quota (>70%), execution unfreezes automatically.</li>

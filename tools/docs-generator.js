@@ -118,7 +118,7 @@ class DocsGenerator {
     this.ensureDirs();
     let md = '# Recovery & Continuity Reference\n\n';
     md += '## Handoff & Checkpoint Format\n\n';
-    md += 'Checkpoints are written atomically to `~/.gemini/antigravity-quota-safety/checkpoints/`.\n';
+    md += 'Checkpoints are written atomically to `~/.gemini/antigravity-quota-guard/checkpoints/`.\n';
     md += 'Each checkpoint produces two companion files with permissions `0600`:\n';
     md += '1. `checkpoint_<timestamp>.json`: Complete structured session metadata.\n';
     md += '2. `checkpoint_<timestamp>.md`: Formatted Markdown recovery document for successor agent.\n';

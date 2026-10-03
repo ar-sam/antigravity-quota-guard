@@ -20,7 +20,7 @@ class QuotaGuardDoctor {
     this._appPath = options.appPath || '/Applications/Antigravity.app';
     this._rootDir = options.rootDir || path.resolve(__dirname, '..');
     this._configDir = options.configDir || path.join(os.homedir(), '.gemini', 'antigravity-quota-guard');
-    this._checkpointsDir = options.checkpointsDir || path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+    this._checkpointsDir = options.checkpointsDir || path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'checkpoints');
   }
 
   /**

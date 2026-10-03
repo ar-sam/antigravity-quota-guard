@@ -12,11 +12,38 @@ const os = require('os');
 const crypto = require('crypto');
 const { DEFAULT_CONFIG } = require('./config-defaults.js');
 
+function getLegacyCheckpointsDir() {
+  return path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+}
+
 function getDefaultCheckpointsDir() {
   if (process.env.QUOTA_GUARD_CHECKPOINTS_DIR) {
     return process.env.QUOTA_GUARD_CHECKPOINTS_DIR;
   }
-  return path.join(os.homedir(), '.gemini', 'antigravity-quota-safety', 'checkpoints');
+  return path.join(os.homedir(), '.gemini', 'antigravity-quota-guard', 'checkpoints');
+}
+
+/**
+ * Automatically migrates existing checkpoints from legacy directory if present.
+ */
+function migrateLegacyCheckpoints(targetDir) {
+  try {
+    const legacyDir = getLegacyCheckpointsDir();
+    if (fs.existsSync(legacyDir) && fs.existsSync(targetDir) && legacyDir !== targetDir) {
+      const files = fs.readdirSync(legacyDir);
+      for (const file of files) {
+        if (file.endsWith('.json') || file.endsWith('.md')) {
+          const srcPath = path.join(legacyDir, file);
+          const destPath = path.join(targetDir, file);
+          if (!fs.existsSync(destPath)) {
+            try {
+              fs.copyFileSync(srcPath, destPath);
+            } catch (_) {}
+          }
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 /**
@@ -150,6 +177,7 @@ class SnapshotEngine {
         fs.chmodSync(this.checkpointsDir, 0o700);
       } catch (_) {}
     }
+    migrateLegacyCheckpoints(this.checkpointsDir);
   }
 
   /**
