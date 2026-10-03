@@ -24,8 +24,38 @@ const { PreflightChecker } = require('./preflight-checker');
 const DEFAULT_ALLOWLISTED_DIFF_FILES = [
   'dist/utils.js',
   'dist/quota-guard-payload.js',
-  'dist/quota-guard-snapshot.js'
+  'dist/quota-guard-snapshot.js',
+  'dist/ui/desktop-hud'
 ];
+
+/**
+ * Safely and atomically replaces target with source, handling Windows EPERM/EBUSY.
+ */
+function safeAtomicReplace(sourcePath, targetPath) {
+  try {
+    fs.renameSync(sourcePath, targetPath);
+  } catch (err) {
+    if (err.code === 'EPERM' || err.code === 'EEXIST' || err.code === 'EBUSY') {
+      const oldTemp = `${targetPath}.old.${Date.now()}`;
+      try {
+        fs.renameSync(targetPath, oldTemp);
+      } catch (_) {
+        fs.copyFileSync(sourcePath, targetPath);
+        try { fs.unlinkSync(sourcePath); } catch (_) {}
+        return;
+      }
+      try {
+        fs.renameSync(sourcePath, targetPath);
+        try { fs.unlinkSync(oldTemp); } catch (_) {}
+      } catch (moveErr) {
+        try { fs.renameSync(oldTemp, targetPath); } catch (_) {}
+        throw moveErr;
+      }
+    } else {
+      throw err;
+    }
+  }
+}
 
 class AsarPatcher {
   constructor(options = {}) {
@@ -200,7 +230,7 @@ class AsarPatcher {
       }
 
       // 8. Live Transactional Atomic Replacement
-      fs.renameSync(repackedAsarPath, targetAsar);
+      safeAtomicReplace(repackedAsarPath, targetAsar);
 
       // Verify post-patch
       const postSha = sha256File(targetAsar);
