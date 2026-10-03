@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test & Verify (Node ${{ matrix.node-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Syntax Pre-flight Audit
+        run: |
+          for f in $(find bin core auth providers mcp platform tools installer ui integrations -name "*.js" -not -path "*/node_modules/*"); do
+            node --check "$f"
+          done
+
+      - name: Run Full E2E & Contract Test Suite (271 tests)
+        run: npm test
+
+      - name: Verify Docs-as-Code Parity Gate
+        run: npm run docs:check
+
+      - name: System Diagnostic Audit (Doctor)
+        run: node tools/doctor.js

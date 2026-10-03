@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Full Verification Pre-flight
+        run: |
+          npm test
+          npm run docs:check
+          node tools/doctor.js
+
+      - name: Package Release Distribution
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          ARCHIVE_NAME="antigravity-quota-guard-${TAG_NAME}.tar.gz"
+          tar -czf "$ARCHIVE_NAME" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            .
+          sha256sum "$ARCHIVE_NAME" > "${ARCHIVE_NAME}.sha256"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            antigravity-quota-guard-*.tar.gz
+            antigravity-quota-guard-*.tar.gz.sha256
+          generate_release_notes: true

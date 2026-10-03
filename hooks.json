@@ -1,0 +1,38 @@
+{
+  "quota-guard": {
+    "enabled": true,
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "./hooks/pre-invocation.sh",
+        "timeout": 10
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/pre-tool-use.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "./hooks/post-invocation.sh",
+        "timeout": 15
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./hooks/on-stop.sh",
+        "timeout": 10
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "antigravity-quota-guard",
+  "description": "Host-level hybrid runtime coordinator, turn-boundary quota safety, and zero-context-loss handover subsystem for Antigravity"
+}

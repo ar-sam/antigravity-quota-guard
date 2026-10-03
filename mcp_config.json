@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "quota_guard": {
+      "command": "node",
+      "args": [
+        "mcp/read-only-server.js"
+      ],
+      "env": {
+        "QUOTA_GUARD_INTEGRITY_MODE": "strict"
+      },
+      "description": "Read-only diagnostic telemetry, quota health status, capability matrix, and checkpoint status provider"
+    }
+  }
+}

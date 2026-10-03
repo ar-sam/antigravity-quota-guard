@@ -1,0 +1,9 @@
+{
+  "description": "Global Runtime Quota Coordinator Sidecar Daemon",
+  "command": "node",
+  "args": ["../../sidecars/quota-guard-coordinator/coordinator-entry.js"],
+  "restart_policy": "on-failure",
+  "env": {
+    "QUOTA_GUARD_INTEGRITY_MODE": "strict"
+  }
+}

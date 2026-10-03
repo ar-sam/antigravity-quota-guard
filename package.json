@@ -1,0 +1,43 @@
+{
+  "name": "antigravity-quota-guard",
+  "version": "2.2.0",
+  "description": "Native Quota HUD, Zero-Context-Loss Multi-Account Handover, and Dynamic Settings Engine for Antigravity Desktop",
+  "main": "bin/index.js",
+  "bin": {
+    "quota-guard": "bin/index.js"
+  },
+  "scripts": {
+    "start": "node bin/index.js",
+    "test": "node test/e2e-runner.js",
+    "test:all": "node test/e2e-runner.js",
+    "doctor": "node tools/doctor.js",
+    "docs:generate": "node tools/docs-generator.js",
+    "docs:check": "node tools/docs-generator.js --check",
+    "install-patch": "node bin/index.js install",
+    "update-patch": "node bin/index.js update",
+    "uninstall-patch": "node bin/index.js uninstall",
+    "status": "node bin/index.js status",
+    "config": "node bin/index.js config",
+    "coordinator": "node bin/index.js coordinator",
+    "v2-status": "node bin/v2-runtime.js --test-init",
+    "start:coordinator": "node bin/v2-runtime.js --coordinator"
+  },
+  "keywords": [
+    "antigravity",
+    "quota",
+    "gemini",
+    "multi-account",
+    "hud",
+    "electron-patch"
+  ],
+  "author": "ar-sam",
+  "license": "MIT",
+  "dependencies": {
+    "@electron/asar": "^3.2.14",
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
